@@ -60,3 +60,4 @@ Make sure you've run `FIX_TRIGGER.sql` so the trigger function exists and is att
 - Verify trigger exists: Run `CHECK_TRIGGER.sql`
 - The callback route will create the profile as a fallback
 
+

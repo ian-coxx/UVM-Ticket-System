@@ -13,3 +13,4 @@ DELETE FROM public.users WHERE email = 'ian.cox@uvm.edu';
 
 -- After deleting, the trigger should fire when you sign in again
 
+

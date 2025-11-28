@@ -79,3 +79,4 @@ If it has `error=` instead, that's the problem.
 3. **Check Supabase Auth Logs** for detailed error messages
 4. **Share the error message** you see in the terminal or Supabase logs
 
+

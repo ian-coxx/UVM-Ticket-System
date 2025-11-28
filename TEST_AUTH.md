@@ -56,3 +56,4 @@ If you ARE logged in but the profile doesn't exist, the middleware might be bloc
 3. **Try manual profile creation** - Then access /tickets directly
 4. **Share the terminal output** - So I can see what's happening
 
+

@@ -42,3 +42,4 @@ LEFT JOIN public.users pu ON au.id = pu.id
 ORDER BY au.created_at DESC
 LIMIT 5;
 
+
