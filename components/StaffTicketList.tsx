@@ -1,0 +1,352 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { Ticket, Category, Urgency, TicketStatus } from '@/types/database'
+import { format } from 'date-fns'
+import { useRouter } from 'next/navigation'
+
+const urgencyColors = {
+  low: 'bg-blue-100 text-blue-800',
+  medium: 'bg-yellow-100 text-yellow-800',
+  high: 'bg-orange-100 text-orange-800',
+  critical: 'bg-red-100 text-red-800',
+}
+
+const statusColors = {
+  open: 'bg-gray-100 text-gray-800',
+  in_progress: 'bg-blue-100 text-blue-800',
+  resolved: 'bg-green-100 text-green-800',
+  closed: 'bg-gray-200 text-gray-600',
+}
+
+const categoryLabels: Record<Category, string> = {
+  account_management: 'Account Management',
+  system_admin: 'System Admin',
+  classroom_tech: 'Classroom Tech',
+  general: 'General',
+}
+
+export default function StaffTicketList() {
+  const router = useRouter()
+  const [tickets, setTickets] = useState<Ticket[]>([])
+  const [loading, setLoading] = useState(true)
+  const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editForm, setEditForm] = useState<{
+    category: Category
+    urgency: Urgency
+    status: TicketStatus
+    assigned_to?: string
+  } | null>(null)
+
+  useEffect(() => {
+    const supabase = createClient()
+    loadTickets()
+    
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('tickets-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+        },
+        () => {
+          loadTickets()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  const loadTickets = async () => {
+    const supabase = createClient()
+    try {
+      setLoading(true)
+      const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+      setTickets(data || [])
+    } catch (err: any) {
+      console.error('Error loading tickets:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const supabase = createClient()
+    loadTickets()
+    
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('tickets-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tickets',
+        },
+        () => {
+          loadTickets()
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
+  const handleTicketClick = (ticket: Ticket) => {
+    setSelectedTicket(ticket)
+    setIsEditing(false)
+    setEditForm({
+      category: ticket.category,
+      urgency: ticket.urgency,
+      status: ticket.status,
+      assigned_to: ticket.assigned_to || '',
+    })
+  }
+
+  const handleSave = async () => {
+    if (!selectedTicket || !editForm) {
+      if (!editForm) {
+        alert('Please select a ticket to edit')
+        return
+      }
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('tickets')
+        .update({
+          category: editForm.category,
+          urgency: editForm.urgency,
+          status: editForm.status,
+          assigned_to: editForm.assigned_to || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', selectedTicket.id)
+
+      if (error) throw error
+
+      // Trigger n8n webhook for email notification
+      const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
+      if (n8nWebhookUrl) {
+        fetch(n8nWebhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            event: 'ticket.updated',
+            ticket: { ...selectedTicket, ...editForm },
+          }),
+        }).catch(console.error)
+      }
+
+      await loadTickets()
+      setIsEditing(false)
+      alert('Ticket updated successfully! Email sent to user.')
+    } catch (err: any) {
+      console.error('Error updating ticket:', err)
+      alert('Failed to update ticket')
+    }
+  }
+
+  const filteredTickets = tickets.filter(t => t.status !== 'closed')
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-600">Loading tickets...</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Ticket List */}
+      <div className="space-y-4">
+        <h2 className="text-2xl font-bold text-uvm-dark mb-4">Open Tickets</h2>
+        {filteredTickets.length === 0 ? (
+          <p className="text-gray-600">No open tickets.</p>
+        ) : (
+          filteredTickets.map((ticket) => (
+            <div
+              key={ticket.id}
+              onClick={() => handleTicketClick(ticket)}
+              className={`bg-white rounded-lg shadow-md p-6 cursor-pointer hover:shadow-lg transition-shadow ${
+                selectedTicket?.id === ticket.id ? 'ring-2 ring-uvm-green' : ''
+              }`}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <h3 className="text-lg font-semibold text-uvm-dark">{ticket.title}</h3>
+                <div className="flex gap-2">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${urgencyColors[ticket.urgency]}`}
+                  >
+                    {ticket.urgency}
+                  </span>
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[ticket.status]}`}
+                  >
+                    {ticket.status}
+                  </span>
+                </div>
+              </div>
+              <div className="flex gap-2 mb-2">
+                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                  {categoryLabels[ticket.category]}
+                </span>
+              </div>
+              <p className="text-gray-600 text-sm line-clamp-2 mb-2">{ticket.description}</p>
+              <p className="text-xs text-gray-500">
+                {ticket.email} • {format(new Date(ticket.created_at), 'MMM d, yyyy')}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Ticket Details */}
+      {selectedTicket && (
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <h2 className="text-2xl font-bold text-uvm-dark mb-4">Ticket Details</h2>
+          
+          {!isEditing ? (
+            <>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-gray-700">Title</h3>
+                  <p className="text-gray-900">{selectedTicket.title}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-700">Description</h3>
+                  <p className="text-gray-900 whitespace-pre-wrap">{selectedTicket.description}</p>
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-700">Contact</h3>
+                  <p className="text-gray-900">{selectedTicket.email}</p>
+                  {selectedTicket.name && (
+                    <p className="text-gray-900">{selectedTicket.name}</p>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Category</h3>
+                    <p className="text-gray-900">{categoryLabels[selectedTicket.category]}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Urgency</h3>
+                    <p className="text-gray-900">{selectedTicket.urgency}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Status</h3>
+                    <p className="text-gray-900">{selectedTicket.status}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Department</h3>
+                    <p className="text-gray-900">{selectedTicket.department}</p>
+                  </div>
+                </div>
+                {selectedTicket.ai_suggestions && (
+                  <div>
+                    <h3 className="font-semibold text-gray-700">AI Suggestions</h3>
+                    <p className="text-gray-900">{selectedTicket.ai_suggestions}</p>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => setIsEditing(true)}
+                className="mt-6 bg-uvm-green text-white py-2 px-6 rounded-md font-semibold hover:bg-opacity-90 transition-colors"
+              >
+                Edit Ticket
+              </button>
+            </>
+          ) : (
+            <>
+              <div className="space-y-4">
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-2">Category</label>
+                  <select
+                    value={editForm?.category || 'general'}
+                    onChange={(e) => editForm && setEditForm({ ...editForm, category: e.target.value as Category })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  >
+                    <option value="account_management">Account Management</option>
+                    <option value="system_admin">System Admin</option>
+                    <option value="classroom_tech">Classroom Tech</option>
+                    <option value="general">General</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-2">Urgency</label>
+                  <select
+                    value={editForm?.urgency || 'medium'}
+                    onChange={(e) => editForm && setEditForm({ ...editForm, urgency: e.target.value as Urgency })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                    <option value="critical">Critical</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-2">Status</label>
+                  <select
+                    value={editForm?.status || 'open'}
+                    onChange={(e) => editForm && setEditForm({ ...editForm, status: e.target.value as TicketStatus })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                  >
+                    <option value="open">Open</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-gray-700 mb-2">Assigned To</label>
+                  <input
+                    type="text"
+                    value={editForm?.assigned_to || ''}
+                    onChange={(e) => editForm && setEditForm({ ...editForm, assigned_to: e.target.value })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
+                    placeholder="Staff member email or name"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-4 mt-6">
+                <button
+                  onClick={handleSave}
+                  className="flex-1 bg-uvm-green text-white py-2 px-6 rounded-md font-semibold hover:bg-opacity-90 transition-colors"
+                >
+                  Save & Send Email
+                </button>
+                <button
+                  onClick={() => setIsEditing(false)}
+                  className="flex-1 bg-gray-300 text-gray-700 py-2 px-6 rounded-md font-semibold hover:bg-gray-400 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
