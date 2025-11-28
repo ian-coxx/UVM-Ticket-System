@@ -26,6 +26,16 @@ export default function TicketForm() {
   const [ticketId, setTicketId] = useState<string | null>(null)
   const [user, setUser] = useState<User | null>(null)
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+    setValue,
+  } = useForm<TicketFormData>({
+    resolver: zodResolver(ticketSchema),
+  })
+
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -36,16 +46,6 @@ export default function TicketForm() {
       }
     })
   }, [setValue])
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-    setValue,
-  } = useForm<TicketFormData>({
-    resolver: zodResolver(ticketSchema),
-  })
 
   const onSubmit = async (data: TicketFormData) => {
     setIsSubmitting(true)
