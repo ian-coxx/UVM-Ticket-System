@@ -29,15 +29,27 @@ CREATE POLICY "Users can update own profile" ON public.users
   FOR UPDATE
   USING (auth.uid() = id);
 
--- Policy: Staff can view all users
+-- Create a SECURITY DEFINER function to check if user is staff
+-- This bypasses RLS to avoid infinite recursion
+CREATE OR REPLACE FUNCTION public.is_staff(user_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.users
+    WHERE id = user_id AND role = 'staff'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Policy: Staff can view all users (uses function to avoid recursion)
 CREATE POLICY "Staff can view all users" ON public.users
   FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id = auth.uid() AND role = 'staff'
-    )
-  );
+  USING (public.is_staff(auth.uid()));
+
+-- Policy: Allow insert for authenticated users (needed for trigger)
+CREATE POLICY "Enable insert for authenticated users" ON public.users
+  FOR INSERT
+  WITH CHECK (true);
 
 -- Function to create user profile on first login
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -63,7 +75,7 @@ BEGIN
     user_department := 'student'; -- Default, can be updated
   END IF;
   
-  -- Insert into public.users
+  -- Insert into public.users (with ON CONFLICT to prevent errors)
   INSERT INTO public.users (id, email, name, role, department)
   VALUES (
     NEW.id,
@@ -71,13 +83,17 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'name', SPLIT_PART(user_email, '@', 1)),
     user_role,
     user_department
-  );
+  )
+  ON CONFLICT (id) DO UPDATE
+  SET email = EXCLUDED.email,
+      updated_at = NOW();
   
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger to create user profile when auth user is created
+-- Drop trigger if exists, then create it
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW
@@ -125,22 +141,14 @@ CREATE POLICY "Users can view own tickets" ON tickets
   USING (
     auth.uid() IS NOT NULL AND (
       email = (SELECT email FROM public.users WHERE id = auth.uid())
-      OR EXISTS (
-        SELECT 1 FROM public.users
-        WHERE id = auth.uid() AND role = 'staff'
-      )
+      OR public.is_staff(auth.uid())
     )
   );
 
--- Policy: Staff can update tickets
+-- Policy: Staff can update tickets (uses function to avoid recursion)
 CREATE POLICY "Staff can update tickets" ON tickets
   FOR UPDATE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.users
-      WHERE id = auth.uid() AND role = 'staff'
-    )
-  );
+  USING (public.is_staff(auth.uid()));
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
