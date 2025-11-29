@@ -5,17 +5,13 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/client'
-import { Category, Department } from '@/types/database'
-import { TicketSubmission } from '@/types/database'
 import type { User } from '@supabase/supabase-js'
 
 const ticketSchema = z.object({
-  title: z.string().min(5, 'Title must be at least 5 characters'),
-  description: z.string().min(10, 'Description must be at least 10 characters'),
+  name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
-  name: z.string().optional(),
-  category: z.enum(['account_management', 'system_admin', 'classroom_tech', 'general']).optional(),
-  department: z.enum(['student', 'faculty', 'staff']).optional(),
+  device_os: z.string().min(1, 'Device operating system is required'),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
 })
 
 type TicketFormData = z.infer<typeof ticketSchema>
@@ -41,8 +37,11 @@ export default function TicketForm() {
     supabase.auth.getUser().then(({ data: { user } }) => {
       setUser(user)
       if (user) {
-        // Pre-fill email if user is logged in
+        // Pre-fill email and name if user is logged in
         setValue('email', user.email || '')
+        if (user.user_metadata?.name) {
+          setValue('name', user.user_metadata.name)
+        }
       }
     })
   }, [setValue])
@@ -53,16 +52,25 @@ export default function TicketForm() {
 
     try {
       const supabase = createClient()
+      
+      // Generate title from description (first 50 chars) since DB requires title
+      const title = data.description.length > 50 
+        ? data.description.substring(0, 50) + '...' 
+        : data.description
+      
+      // Append device OS info to description
+      const fullDescription = `${data.description}\n\nDevice Operating System: ${data.device_os}`
+      
       // Insert ticket into Supabase
       const { data: ticket, error } = await supabase
         .from('tickets')
         .insert({
-          title: data.title,
-          description: data.description,
+          title: title,
+          description: fullDescription,
           email: data.email,
-          name: data.name || null,
-          category: data.category || 'general',
-          department: data.department || 'student',
+          name: data.name,
+          category: 'general', // Default, can be updated by n8n
+          department: 'student', // Default, can be updated by n8n
           status: 'open',
           urgency: 'medium', // Will be updated by n8n workflow
         })
@@ -97,7 +105,8 @@ export default function TicketForm() {
 
   return (
     <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-8">
-      <h1 className="text-3xl font-bold text-uvm-dark mb-6">Submit a Ticket</h1>
+      <h1 className="text-3xl font-bold text-uvm-dark mb-2">Ticket Submission</h1>
+      <p className="text-gray-600 mb-6">Describe the issue you're having</p>
 
       {submitStatus === 'success' && (
         <div className="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
@@ -116,30 +125,69 @@ export default function TicketForm() {
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         <div>
-          <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-            Title *
+          <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+            Your Name <span className="text-red-500">*</span>
           </label>
           <input
-            {...register('title')}
+            {...register('name')}
             type="text"
-            id="title"
+            id="name"
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
-            placeholder="Brief description of your issue"
+            placeholder="Your name"
           />
-          {errors.title && (
-            <p className="mt-1 text-sm text-red-600">{errors.title.message}</p>
+          {errors.name && (
+            <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+            Your email address <span className="text-red-500">*</span>
+          </label>
+          <input
+            {...register('email')}
+            type="email"
+            id="email"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
+            placeholder="your.email@uvm.edu"
+          />
+          {errors.email && (
+            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+          )}
+        </div>
+
+        <div>
+          <label htmlFor="device_os" className="block text-sm font-medium text-gray-700 mb-2">
+            Device operating system <span className="text-red-500">*</span>
+          </label>
+          <select
+            {...register('device_os')}
+            id="device_os"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23333%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-right pr-10"
+            style={{ backgroundPosition: 'right 0.75rem center' }}
+          >
+            <option value="">Select an option ...</option>
+            <option value="Windows">Windows</option>
+            <option value="macOS">macOS</option>
+            <option value="Linux">Linux</option>
+            <option value="iOS">iOS</option>
+            <option value="Android">Android</option>
+            <option value="Other">Other</option>
+          </select>
+          {errors.device_os && (
+            <p className="mt-1 text-sm text-red-600">{errors.device_os.message}</p>
           )}
         </div>
 
         <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-            Description *
+            Description of your issue <span className="text-red-500">*</span>
           </label>
           <textarea
             {...register('description')}
             id="description"
             rows={6}
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white resize-y"
             placeholder="Please provide detailed information about your issue..."
           />
           {errors.description && (
@@ -147,78 +195,12 @@ export default function TicketForm() {
           )}
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              Email *
-            </label>
-            <input
-              {...register('email')}
-              type="email"
-              id="email"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
-              placeholder="your.email@uvm.edu"
-            />
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
-              Name (Optional)
-            </label>
-            <input
-              {...register('name')}
-              type="text"
-              id="name"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
-              placeholder="Your name"
-            />
-          </div>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-              Category (Optional)
-            </label>
-            <select
-              {...register('category')}
-              id="category"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
-            >
-              <option value="">Select category...</option>
-              <option value="account_management">Account Management</option>
-              <option value="system_admin">System Admin & Architecture</option>
-              <option value="classroom_tech">Classroom Tech Services</option>
-              <option value="general">General</option>
-            </select>
-          </div>
-
-          <div>
-            <label htmlFor="department" className="block text-sm font-medium text-gray-700 mb-2">
-              Department (Optional)
-            </label>
-            <select
-              {...register('department')}
-              id="department"
-              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
-            >
-              <option value="">Select department...</option>
-              <option value="student">Student</option>
-              <option value="faculty">Faculty</option>
-              <option value="staff">Staff</option>
-            </select>
-          </div>
-        </div>
-
         <button
           type="submit"
           disabled={isSubmitting}
-          className="w-full bg-uvm-green text-white py-3 px-6 rounded-md font-semibold hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          className="w-full bg-[#FF6B6B] hover:bg-[#FF5252] text-white py-3 px-6 rounded-md font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {isSubmitting ? 'Submitting...' : 'Submit Ticket'}
+          {isSubmitting ? 'Submitting...' : 'Submit'}
         </button>
       </form>
     </div>

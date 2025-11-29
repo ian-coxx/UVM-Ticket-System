@@ -80,3 +80,4 @@ If it has `error=` instead, that's the problem.
 4. **Share the error message** you see in the terminal or Supabase logs
 
 
+

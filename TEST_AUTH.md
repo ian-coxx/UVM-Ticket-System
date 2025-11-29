@@ -57,3 +57,4 @@ If you ARE logged in but the profile doesn't exist, the middleware might be bloc
 4. **Share the terminal output** - So I can see what's happening
 
 
+
