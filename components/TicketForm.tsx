@@ -59,6 +59,22 @@ export default function TicketForm() {
     try {
       const supabase = createClient()
       
+      // Verify user is authenticated and get session
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+      if (sessionError || !session) {
+        console.error('No active session:', sessionError)
+        setMessage({
+          type: 'error',
+          text: 'You must be logged in to submit a ticket. Please refresh and try again.',
+        })
+        setSubmitStatus('error')
+        return
+      }
+      
+      console.log('User authenticated:', user.id)
+      console.log('Session exists:', !!session)
+      console.log('Session user ID:', session.user.id)
+      
       // Insert ticket into Supabase with default values
       // Flow: Frontend stores ticket → Supabase webhook triggers → n8n processes → n8n updates ticket
       // This ensures tickets are never lost and users get immediate confirmation
