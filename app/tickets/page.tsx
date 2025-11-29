@@ -76,7 +76,7 @@ export default function TicketsPage() {
         </div>
 
         <h1 className="text-3xl font-bold text-uvm-dark mb-6">Your Tickets</h1>
-        <TicketList userEmail={user.email} />
+        <TicketList userId={user.id} />
       </div>
     </main>
   )

@@ -15,18 +15,21 @@ export interface User {
 }
 
 export interface Ticket {
-  id: string
-  created_at: string
-  updated_at: string
-  title: string
-  description: string
-  email: string
-  name?: string
+  id: number | string // bigint in database, can be number or string
+  userid?: string // UUID from auth.users
   operating_system?: string
-  status: TicketStatus
-  urgency: Urgency
-  category: Category
-  department: Department
+  issue_description?: string
+  category?: string
+  urgency?: string
+  department?: string
+  // Optional fields that may be added by n8n or not present in actual table
+  created_at?: string
+  updated_at?: string
+  title?: string
+  description?: string // Legacy field name
+  email?: string
+  name?: string
+  status?: TicketStatus
   assigned_to?: string
   estimated_time?: number // in minutes
   ai_confidence?: number // 0-100
