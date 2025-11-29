@@ -59,15 +59,17 @@ export default function TicketForm() {
     try {
       const supabase = createClient()
       
-      // Insert ticket into Supabase
-      // Note: The actual table uses userid (UUID) and issue_description
+      // Insert ticket into Supabase with default values
+      // Flow: Frontend stores ticket → Supabase webhook triggers → n8n processes → n8n updates ticket
+      // This ensures tickets are never lost and users get immediate confirmation
+      // n8n will update fields like urgency, category, ai_suggestions after processing
       const { data: ticket, error } = await supabase
         .from('tickets')
         .insert({
-          userid: user.id, // Use authenticated user's ID
+          userid: user.id, // Use authenticated user's ID (required for RLS policy)
           operating_system: data.operating_system,
           issue_description: data.description, // The table uses issue_description, not description
-          category: 'General', // Default, can be updated by n8n
+          category: 'General', // Default category - n8n will update this after processing
         })
         .select()
         .single()
