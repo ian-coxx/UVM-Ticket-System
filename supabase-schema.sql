@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   description TEXT NOT NULL,
   email TEXT NOT NULL,
   name TEXT,
+  operating_system TEXT,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'resolved', 'closed')),
   urgency TEXT NOT NULL DEFAULT 'medium' CHECK (urgency IN ('low', 'medium', 'high', 'critical')),
   category TEXT NOT NULL DEFAULT 'general' CHECK (category IN ('account_management', 'system_admin', 'classroom_tech', 'general')),
@@ -130,10 +131,10 @@ CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at DESC);
 -- Enable Row Level Security (RLS)
 ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 
--- Policy: Anyone can insert tickets (for public submission)
-CREATE POLICY "Anyone can insert tickets" ON tickets
+-- Policy: Authenticated users can insert tickets
+CREATE POLICY "Authenticated users can insert tickets" ON tickets
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (auth.uid() IS NOT NULL);
 
 -- Policy: Users can view their own tickets
 CREATE POLICY "Users can view own tickets" ON tickets

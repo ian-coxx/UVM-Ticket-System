@@ -10,7 +10,7 @@ import type { User } from '@supabase/supabase-js'
 const ticketSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
-  device_os: z.string().min(1, 'Device operating system is required'),
+  operating_system: z.string().min(1, 'Device operating system is required'),
   description: z.string().min(10, 'Description must be at least 10 characters'),
 })
 
@@ -47,6 +47,12 @@ export default function TicketForm() {
   }, [setValue])
 
   const onSubmit = async (data: TicketFormData) => {
+    // Check if user is authenticated
+    if (!user) {
+      setSubmitStatus('error')
+      return
+    }
+
     setIsSubmitting(true)
     setSubmitStatus('idle')
 
@@ -58,17 +64,15 @@ export default function TicketForm() {
         ? data.description.substring(0, 50) + '...' 
         : data.description
       
-      // Append device OS info to description
-      const fullDescription = `${data.description}\n\nDevice Operating System: ${data.device_os}`
-      
       // Insert ticket into Supabase
       const { data: ticket, error } = await supabase
         .from('tickets')
         .insert({
           title: title,
-          description: fullDescription,
+          description: data.description,
           email: data.email,
           name: data.name,
+          operating_system: data.operating_system,
           category: 'general', // Default, can be updated by n8n
           department: 'student', // Default, can be updated by n8n
           status: 'open',
@@ -119,7 +123,7 @@ export default function TicketForm() {
 
       {submitStatus === 'error' && (
         <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
-          <p>Failed to submit ticket. Please try again.</p>
+          <p>Failed to submit ticket. {!user ? 'Please log in to submit a ticket.' : 'Please try again.'}</p>
         </div>
       )}
 
@@ -157,12 +161,12 @@ export default function TicketForm() {
         </div>
 
         <div>
-          <label htmlFor="device_os" className="block text-sm font-medium text-gray-700 mb-2">
+          <label htmlFor="operating_system" className="block text-sm font-medium text-gray-700 mb-2">
             Device operating system <span className="text-red-500">*</span>
           </label>
           <select
-            {...register('device_os')}
-            id="device_os"
+            {...register('operating_system')}
+            id="operating_system"
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23333%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-right pr-10"
             style={{ backgroundPosition: 'right 0.75rem center' }}
           >
@@ -174,8 +178,8 @@ export default function TicketForm() {
             <option value="Android">Android</option>
             <option value="Other">Other</option>
           </select>
-          {errors.device_os && (
-            <p className="mt-1 text-sm text-red-600">{errors.device_os.message}</p>
+          {errors.operating_system && (
+            <p className="mt-1 text-sm text-red-600">{errors.operating_system.message}</p>
           )}
         </div>
 

@@ -58,6 +58,16 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // Protect submit route - require authentication
+  if (request.nextUrl.pathname === '/submit') {
+    if (!user) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.searchParams.set('redirect', request.nextUrl.pathname)
+      return NextResponse.redirect(url)
+    }
+  }
+
   // Protect user ticket viewing routes
   if (request.nextUrl.pathname.startsWith('/tickets') && request.nextUrl.pathname !== '/tickets') {
     if (!user) {

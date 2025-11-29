@@ -22,6 +22,7 @@ export interface Ticket {
   description: string
   email: string
   name?: string
+  operating_system?: string
   status: TicketStatus
   urgency: Urgency
   category: Category
