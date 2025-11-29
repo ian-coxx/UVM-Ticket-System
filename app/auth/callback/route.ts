@@ -22,6 +22,7 @@ export async function GET(request: Request) {
   // Handle errors from Supabase
   if (error) {
     console.error('Auth error from Supabase:', error, errorDescription)
+    console.error('Full callback URL:', requestUrl.toString())
     const errorUrl = new URL(`${origin}/login`)
     errorUrl.searchParams.set('error', error)
     errorUrl.searchParams.set('error_description', errorDescription || 'Authentication failed')
