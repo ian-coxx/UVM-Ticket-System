@@ -63,11 +63,9 @@ export default function TicketForm() {
       const { data: { session }, error: sessionError } = await supabase.auth.getSession()
       if (sessionError || !session) {
         console.error('No active session:', sessionError)
-        setMessage({
-          type: 'error',
-          text: 'You must be logged in to submit a ticket. Please refresh and try again.',
-        })
+        console.error('Session error details:', sessionError)
         setSubmitStatus('error')
+        setIsSubmitting(false)
         return
       }
       
