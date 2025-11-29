@@ -59,24 +59,15 @@ export default function TicketForm() {
     try {
       const supabase = createClient()
       
-      // Generate title from description (first 50 chars) since DB requires title
-      const title = data.description.length > 50 
-        ? data.description.substring(0, 50) + '...' 
-        : data.description
-      
       // Insert ticket into Supabase
+      // Note: The actual table uses userid (UUID) and issue_description
       const { data: ticket, error } = await supabase
         .from('tickets')
         .insert({
-          title: title,
-          description: data.description,
-          email: data.email,
-          name: data.name,
+          userid: user.id, // Use authenticated user's ID
           operating_system: data.operating_system,
-          category: 'general', // Default, can be updated by n8n
-          department: 'student', // Default, can be updated by n8n
-          status: 'open',
-          urgency: 'medium', // Will be updated by n8n workflow
+          issue_description: data.description, // The table uses issue_description, not description
+          category: 'General', // Default, can be updated by n8n
         })
         .select()
         .single()
@@ -101,7 +92,12 @@ export default function TicketForm() {
       }
     } catch (error: any) {
       console.error('Error submitting ticket:', error)
+      console.error('Error details:', JSON.stringify(error, null, 2))
       setSubmitStatus('error')
+      // Show more detailed error message
+      if (error.message) {
+        console.error('Supabase error message:', error.message)
+      }
     } finally {
       setIsSubmitting(false)
     }
