@@ -29,18 +29,6 @@ export default async function Home() {
             </p>
           </Link>
 
-          <Link
-            href="/tickets"
-            className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow"
-          >
-            <h2 className="text-2xl font-semibold text-uvm-green mb-4">
-              View Tickets
-            </h2>
-            <p className="text-gray-600">
-              Check the status of your submitted tickets
-            </p>
-          </Link>
-
           {user ? (
             <>
               <Link
@@ -68,6 +56,17 @@ export default async function Home() {
             </>
           ) : (
             <>
+              <Link
+                href="/tickets"
+                className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow"
+              >
+                <h2 className="text-2xl font-semibold text-uvm-green mb-4">
+                  View Tickets
+                </h2>
+                <p className="text-gray-600">
+                  Check the status of your submitted tickets
+                </p>
+              </Link>
               <Link
                 href="/login"
                 className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow"
