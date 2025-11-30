@@ -40,31 +40,6 @@ export default function StaffTicketList() {
     assigned_to?: string
   } | null>(null)
 
-  useEffect(() => {
-    const supabase = createClient()
-    loadTickets()
-    
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('tickets-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tickets',
-        },
-        () => {
-          loadTickets()
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
-  }, [])
-
   const loadTickets = async () => {
     const supabase = createClient()
     try {
@@ -72,7 +47,15 @@ export default function StaffTicketList() {
       const { data, error } = await supabase
         .from('tickets')
         .select('*')
-        .order('created_at', { ascending: false })
+      
+      // Sort by id descending (bigint, so higher ID = newer)
+      if (data) {
+        data.sort((a: any, b: any) => {
+          const aId = typeof a.id === 'number' ? a.id : parseInt(String(a.id), 10)
+          const bId = typeof b.id === 'number' ? b.id : parseInt(String(b.id), 10)
+          return bId - aId // Descending order (newest first)
+        })
+      }
 
       if (error) throw error
       setTickets(data || [])
@@ -112,9 +95,9 @@ export default function StaffTicketList() {
     setSelectedTicket(ticket)
     setIsEditing(false)
     setEditForm({
-      category: ticket.category,
-      urgency: ticket.urgency,
-      status: ticket.status,
+      category: (ticket.category as Category) || 'general',
+      urgency: (ticket.urgency as Urgency) || 'medium',
+      status: (ticket.status as TicketStatus) || 'open',
       assigned_to: ticket.assigned_to || '',
     })
   }
@@ -137,7 +120,6 @@ export default function StaffTicketList() {
           urgency: editForm.urgency,
           status: editForm.status,
           assigned_to: editForm.assigned_to || null,
-          updated_at: new Date().toISOString(),
         })
         .eq('id', selectedTicket.id)
 
@@ -165,7 +147,7 @@ export default function StaffTicketList() {
     }
   }
 
-  const filteredTickets = tickets.filter(t => t.status !== 'closed')
+  const filteredTickets = tickets.filter(t => t.status !== 'closed' && t.status !== undefined)
 
   if (loading) {
     return (
@@ -192,29 +174,41 @@ export default function StaffTicketList() {
               }`}
             >
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-lg font-semibold text-uvm-dark">{ticket.title}</h3>
+                <h3 className="text-lg font-semibold text-uvm-dark">
+                  Ticket #{ticket.id}
+                </h3>
                 <div className="flex gap-2">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${urgencyColors[ticket.urgency]}`}
-                  >
-                    {ticket.urgency}
-                  </span>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[ticket.status]}`}
-                  >
-                    {ticket.status}
-                  </span>
+                  {ticket.urgency && (
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${urgencyColors[ticket.urgency as Urgency] || urgencyColors.medium}`}
+                    >
+                      {ticket.urgency}
+                    </span>
+                  )}
+                  {ticket.status && (
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-semibold ${statusColors[ticket.status as TicketStatus] || statusColors.open}`}
+                    >
+                      {ticket.status}
+                    </span>
+                  )}
                 </div>
               </div>
               <div className="flex gap-2 mb-2">
-                <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
-                  {categoryLabels[ticket.category]}
-                </span>
+                {ticket.category && (
+                  <span className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">
+                    {categoryLabels[ticket.category as Category] || ticket.category}
+                  </span>
+                )}
               </div>
-              <p className="text-gray-600 text-sm line-clamp-2 mb-2">{ticket.description}</p>
-              <p className="text-xs text-gray-500">
-                {ticket.email} • {format(new Date(ticket.created_at), 'MMM d, yyyy')}
+              <p className="text-gray-600 text-sm line-clamp-2 mb-2">
+                {ticket.issue_description || ticket.description || 'No description'}
               </p>
+              {ticket.email && (
+                <p className="text-xs text-gray-500">
+                  {ticket.email}
+                </p>
+              )}
             </div>
           ))
         )}
@@ -229,37 +223,57 @@ export default function StaffTicketList() {
             <>
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-gray-700">Title</h3>
-                  <p className="text-gray-900">{selectedTicket.title}</p>
+                  <h3 className="font-semibold text-gray-700">Ticket ID</h3>
+                  <p className="text-gray-900">#{selectedTicket.id}</p>
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-700">Description</h3>
-                  <p className="text-gray-900 whitespace-pre-wrap">{selectedTicket.description}</p>
+                  <p className="text-gray-900 whitespace-pre-wrap">
+                    {selectedTicket.issue_description || selectedTicket.description || 'No description'}
+                  </p>
                 </div>
-                <div>
-                  <h3 className="font-semibold text-gray-700">Contact</h3>
-                  <p className="text-gray-900">{selectedTicket.email}</p>
-                  {selectedTicket.name && (
-                    <p className="text-gray-900">{selectedTicket.name}</p>
-                  )}
-                </div>
+                {selectedTicket.email && (
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Contact</h3>
+                    <p className="text-gray-900">{selectedTicket.email}</p>
+                    {selectedTicket.name && (
+                      <p className="text-gray-900">{selectedTicket.name}</p>
+                    )}
+                  </div>
+                )}
+                {selectedTicket.operating_system && (
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Operating System</h3>
+                    <p className="text-gray-900">{selectedTicket.operating_system}</p>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Category</h3>
-                    <p className="text-gray-900">{categoryLabels[selectedTicket.category]}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Urgency</h3>
-                    <p className="text-gray-900">{selectedTicket.urgency}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Status</h3>
-                    <p className="text-gray-900">{selectedTicket.status}</p>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-700">Department</h3>
-                    <p className="text-gray-900">{selectedTicket.department}</p>
-                  </div>
+                  {selectedTicket.category && (
+                    <div>
+                      <h3 className="font-semibold text-gray-700">Category</h3>
+                      <p className="text-gray-900">
+                        {categoryLabels[selectedTicket.category as Category] || selectedTicket.category}
+                      </p>
+                    </div>
+                  )}
+                  {selectedTicket.urgency && (
+                    <div>
+                      <h3 className="font-semibold text-gray-700">Urgency</h3>
+                      <p className="text-gray-900">{selectedTicket.urgency}</p>
+                    </div>
+                  )}
+                  {selectedTicket.status && (
+                    <div>
+                      <h3 className="font-semibold text-gray-700">Status</h3>
+                      <p className="text-gray-900">{selectedTicket.status}</p>
+                    </div>
+                  )}
+                  {selectedTicket.department && (
+                    <div>
+                      <h3 className="font-semibold text-gray-700">Department</h3>
+                      <p className="text-gray-900">{selectedTicket.department}</p>
+                    </div>
+                  )}
                 </div>
                 {selectedTicket.ai_suggestions && (
                   <div>
