@@ -135,14 +135,14 @@ export default function TicketList({ userId }: { userId?: string }) {
             <div className="flex gap-2">
               {ticket.urgency && (
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${urgencyColors[ticket.urgency] || urgencyColors.medium}`}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold ${urgencyColors[ticket.urgency as keyof typeof urgencyColors] || urgencyColors.medium}`}
                 >
                   {ticket.urgency.toUpperCase()}
                 </span>
               )}
               {ticket.status && (
                 <span
-                  className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[ticket.status] || statusColors.open}`}
+                  className={`px-3 py-1 rounded-full text-xs font-semibold ${statusColors[ticket.status as keyof typeof statusColors] || statusColors.open}`}
                 >
                   {ticket.status.replace('_', ' ').toUpperCase()}
                 </span>
