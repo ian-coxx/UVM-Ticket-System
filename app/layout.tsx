@@ -1,8 +1,17 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 import './globals.css'
-import '@n8n/chat/style.css'
 import './chat-theme.css'
-import AgentWindow from '../components/n8nAgent'
+import dynamic from 'next/dynamic'
+
+// Dynamically import agent component to prevent blocking
+const AgentWindow = dynamic(() => import('../components/n8nAgent'), {
+    ssr: false,
+    loading: () => null,
+})
+
+// Import chat CSS - this should work if the package is installed
+import '@n8n/chat/style.css'
 
 export const metadata: Metadata = {
     title: 'UVM Ticket System',
@@ -16,7 +25,9 @@ export default function RootLayout({children,}: {
         <html lang="en">
             <body>
                 {children}
-                <AgentWindow />
+                <Suspense fallback={null}>
+                    <AgentWindow />
+                </Suspense>
             </body>
         </html>
     )
