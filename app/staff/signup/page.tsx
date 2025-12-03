@@ -19,15 +19,8 @@ export default function StaffSignupPage() {
     setLoading(true)
     setMessage(null)
 
-    // Validate @uvm.edu email
-    if (!email.endsWith('@uvm.edu')) {
-      setMessage({
-        type: 'error',
-        text: 'Please use a @uvm.edu email address',
-      })
-      setLoading(false)
-      return
-    }
+    // Staff can use any email for testing purposes
+    // No email domain restriction for staff signup
 
     // Validate password
     if (password.length < 6) {
@@ -108,7 +101,7 @@ export default function StaffSignupPage() {
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <h1 className="text-3xl font-bold text-uvm-dark mb-2">Staff Sign Up</h1>
         <p className="text-gray-600 mb-6">
-          Create a staff account with your @uvm.edu email address
+          Create a staff account (any email address allowed for testing)
         </p>
 
         {message && (
@@ -140,19 +133,19 @@ export default function StaffSignupPage() {
 
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              UVM Email Address *
+              Email Address *
             </label>
             <input
               type="email"
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="your.name@uvm.edu"
+              placeholder="your.email@example.com"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
               required
             />
             <p className="mt-1 text-xs text-gray-500">
-              Only @uvm.edu email addresses are allowed
+              Any email address is allowed for staff accounts
             </p>
           </div>
 
