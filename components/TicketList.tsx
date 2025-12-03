@@ -48,8 +48,22 @@ export default function TicketList({ userId }: { userId?: string }) {
 
       if (error) {
         console.error('Supabase query error:', error)
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          user: user?.id,
+          email: user?.email
+        })
         throw error
       }
+      
+      console.log('Tickets loaded successfully:', {
+        count: data?.length || 0,
+        userId: user?.id,
+        userEmail: user?.email
+      })
       
       // Sort by id descending (bigint, so higher ID = newer)
       if (data) {
@@ -126,7 +140,20 @@ export default function TicketList({ userId }: { userId?: string }) {
   if (error) {
     return (
       <div className="text-center py-12">
-        <p className="text-red-600">Error: {error}</p>
+        <p className="text-red-600 font-semibold mb-2">Error loading tickets</p>
+        <p className="text-red-600 text-sm mb-4">{error}</p>
+        <button
+          onClick={() => {
+            setError(null)
+            loadTickets()
+          }}
+          className="text-uvm-green hover:underline text-sm"
+        >
+          Try again
+        </button>
+        <p className="text-gray-500 text-xs mt-4">
+          If this persists, please contact support. Error details have been logged to the console.
+        </p>
       </div>
     )
   }
