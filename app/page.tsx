@@ -14,7 +14,10 @@ export default async function Home() {
       .select('role')
       .eq('id', user.id)
       .single()
-    userRole = profile?.role || null
+    
+    // Type assertion to ensure we get the correct type
+    const role = profile?.role as 'user' | 'staff' | null
+    userRole = role || null
     
     // Redirect staff to staff portal
     if (userRole === 'staff') {
