@@ -35,8 +35,8 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Protect staff routes
-  if (request.nextUrl.pathname.startsWith('/staff')) {
+  // Protect staff routes (but allow /staff/signup)
+  if (request.nextUrl.pathname.startsWith('/staff') && request.nextUrl.pathname !== '/staff/signup') {
     if (!user) {
       const url = request.nextUrl.clone()
       url.pathname = '/login'
