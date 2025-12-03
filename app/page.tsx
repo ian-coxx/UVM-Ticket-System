@@ -63,19 +63,6 @@ export default async function Home() {
                   View and manage your submitted tickets
                 </p>
               </Link>
-              {userRole === 'staff' && (
-              <Link
-                href="/staff"
-                className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow"
-              >
-                <h2 className="text-2xl font-semibold text-uvm-green mb-4">
-                  Staff Portal
-                </h2>
-                <p className="text-gray-600">
-                  Access the technician dashboard to manage tickets
-                </p>
-              </Link>
-              )}
             </>
           ) : (
             <>
