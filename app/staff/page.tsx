@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import StaffTicketList from '@/components/StaffTicketList'
 import Link from 'next/link'
@@ -13,13 +13,31 @@ export default function StaffPage() {
   const [user, setUser] = useState<User | null>(null)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [loading, setLoading] = useState(true)
+  const loadingCompleteRef = useRef(false)
 
   useEffect(() => {
     const supabase = createClient()
+    let mounted = true
+    
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (mounted && !loadingCompleteRef.current) {
+        console.error('Loading timeout - redirecting to home')
+        loadingCompleteRef.current = true
+        setLoading(false)
+        router.push('/')
+      }
+    }, 10000) // 10 second timeout
     
     // Get current user and profile
-    supabase.auth.getUser().then(async ({ data: { user } }) => {
-      if (!user) {
+    supabase.auth.getUser().then(async ({ data: { user }, error: authError }) => {
+      if (!mounted) return
+      
+      clearTimeout(timeoutId)
+      
+      if (authError || !user) {
+        loadingCompleteRef.current = true
+        setLoading(false)
         router.push('/login?redirect=/staff')
         return
       }
@@ -27,46 +45,100 @@ export default function StaffPage() {
       setUser(user)
 
       // Get user profile to check role
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', user.id)
-        .single()
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', user.id)
+          .single()
 
-      if (!profile || profile.role !== 'staff') {
-        router.push('/')
-        return
+        if (!mounted) return
+
+        if (profileError) {
+          console.error('Profile query error:', profileError)
+          loadingCompleteRef.current = true
+          setLoading(false)
+          router.push('/')
+          return
+        }
+
+        if (!profile || profile.role !== 'staff') {
+          console.log('User is not staff, redirecting to home')
+          loadingCompleteRef.current = true
+          setLoading(false)
+          router.push('/')
+          return
+        }
+
+        setUserProfile(profile)
+        loadingCompleteRef.current = true
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching profile:', error)
+        if (mounted) {
+          loadingCompleteRef.current = true
+          setLoading(false)
+          router.push('/')
+        }
       }
-
-      setUserProfile(profile)
-      setLoading(false)
+    }).catch((error) => {
+      console.error('Error getting user:', error)
+      clearTimeout(timeoutId)
+      if (mounted) {
+        loadingCompleteRef.current = true
+        setLoading(false)
+        router.push('/login?redirect=/staff')
+      }
     })
 
     // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
+      
       if (!session?.user) {
+        loadingCompleteRef.current = true
+        setLoading(false)
         router.push('/login?redirect=/staff')
         return
       }
 
-      const { data: profile } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single()
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', session.user.id)
+          .single()
 
-      if (!profile || profile.role !== 'staff') {
-        router.push('/')
-        return
+        if (!mounted) return
+
+        if (profileError || !profile || profile.role !== 'staff') {
+          loadingCompleteRef.current = true
+          setLoading(false)
+          router.push('/')
+          return
+        }
+
+        setUser(session.user)
+        setUserProfile(profile)
+        loadingCompleteRef.current = true
+        setLoading(false)
+      } catch (error) {
+        console.error('Error fetching profile in auth change:', error)
+        if (mounted) {
+          loadingCompleteRef.current = true
+          setLoading(false)
+          router.push('/')
+        }
       }
-
-      setUser(session.user)
-      setUserProfile(profile)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+      subscription.unsubscribe()
+    }
   }, [router])
 
   if (loading) {

@@ -26,19 +26,26 @@ export default async function Home() {
           .eq('id', user.id)
           .single()
         
-        if (!profileError && profile) {
+        if (profileError) {
+          // Log the error but don't block the page
+          console.error('Profile query error on home page:', profileError)
+          console.error('User ID:', user.id)
+        } else if (profile) {
           // Type assertion to ensure we get the correct type
           const role = profile?.role as 'user' | 'staff' | null
           userRole = role || null
           
-          // Redirect staff to staff portal
+          // Redirect staff to staff portal - do this immediately
           if (userRole === 'staff') {
+            console.log('Redirecting staff user to /staff')
             redirect('/staff')
           }
+        } else {
+          console.warn('No profile found for user:', user.id)
         }
       } catch (error) {
         // If profile query fails, continue without role
-        console.error('Profile query error:', error)
+        console.error('Profile query error on home page:', error)
       }
     }
   } catch (error) {
