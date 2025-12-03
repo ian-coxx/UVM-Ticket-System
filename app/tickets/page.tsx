@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import TicketList from '@/components/TicketList'
 import Link from 'next/link'
@@ -11,15 +11,43 @@ export default function TicketsPage() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const loadingCompleteRef = useRef(false)
 
   useEffect(() => {
     const supabase = createClient()
+    let mounted = true
+    
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (mounted && !loadingCompleteRef.current) {
+        console.error('Tickets page loading timeout - showing page anyway')
+        loadingCompleteRef.current = true
+        setLoading(false)
+      }
+    }, 5000) // 5 second timeout
     
     // Get current user
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getUser().then(({ data: { user }, error: authError }) => {
+      if (!mounted) return
+      
+      clearTimeout(timeoutId)
+      
+      if (authError || !user) {
+        loadingCompleteRef.current = true
+        setLoading(false)
+        router.push('/login?redirect=/tickets')
+        return
+      }
+      
       setUser(user)
+      loadingCompleteRef.current = true
       setLoading(false)
-      if (!user) {
+    }).catch((error) => {
+      console.error('Error getting user:', error)
+      clearTimeout(timeoutId)
+      if (mounted) {
+        loadingCompleteRef.current = true
+        setLoading(false)
         router.push('/login?redirect=/tickets')
       }
     })
@@ -28,13 +56,27 @@ export default function TicketsPage() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
+      if (!mounted) return
+      
       if (!session?.user) {
+        loadingCompleteRef.current = true
+        setLoading(false)
         router.push('/login?redirect=/tickets')
+        return
+      }
+      
+      setUser(session.user)
+      if (!loadingCompleteRef.current) {
+        loadingCompleteRef.current = true
+        setLoading(false)
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+      subscription.unsubscribe()
+    }
   }, [router])
 
   if (loading) {

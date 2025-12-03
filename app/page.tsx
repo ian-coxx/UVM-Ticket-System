@@ -41,18 +41,40 @@ export default function Home() {
 
       setUser(user)
 
-      // Get user profile to check role
+      // Get user profile to check role with timeout
       try {
-        const { data: profile, error: profileError } = await supabase
+        const profilePromise = supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
           .single()
+        
+        // Add a timeout to the profile query
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Profile query timeout')), 3000)
+        )
+        
+        const { data: profile, error: profileError } = await Promise.race([
+          profilePromise,
+          timeoutPromise
+        ]) as any
 
         if (!mounted) return
 
         if (profileError) {
           console.error('Profile query error:', profileError)
+          console.error('Error code:', profileError.code)
+          console.error('Error message:', profileError.message)
+          console.error('Error details:', profileError)
+          // If query fails, try redirecting anyway - middleware will handle it
+          if (!redirectingRef.current) {
+            redirectingRef.current = true
+            loadingCompleteRef.current = true
+            setLoading(false)
+            // Try redirecting to /staff - if they're not staff, middleware will redirect back
+            router.push('/staff')
+            return
+          }
           loadingCompleteRef.current = true
           setLoading(false)
           return
@@ -60,6 +82,7 @@ export default function Home() {
 
         if (profile && profile.role === 'staff' && !redirectingRef.current) {
           // Redirect staff to staff portal
+          console.log('User is staff, redirecting to /staff')
           redirectingRef.current = true
           loadingCompleteRef.current = true
           setLoading(false)
@@ -69,8 +92,17 @@ export default function Home() {
 
         loadingCompleteRef.current = true
         setLoading(false)
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error checking profile:', error)
+        console.error('Error message:', error?.message)
+        // If query times out or fails, try redirecting anyway
+        if (!redirectingRef.current && error?.message?.includes('timeout')) {
+          redirectingRef.current = true
+          loadingCompleteRef.current = true
+          setLoading(false)
+          router.push('/staff')
+          return
+        }
         if (mounted) {
           loadingCompleteRef.current = true
           setLoading(false)
