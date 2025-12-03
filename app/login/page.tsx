@@ -99,19 +99,19 @@ export default function LoginPage() {
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              UVM Email Address
+              Email Address *
             </label>
             <input
               type="email"
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="your.name@uvm.edu"
+              placeholder="your.email@example.com"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
               required
             />
             <p className="mt-1 text-xs text-gray-500">
-              Only @uvm.edu email addresses are allowed
+              Students: use @uvm.edu email. Staff: any email address.
             </p>
           </div>
 
