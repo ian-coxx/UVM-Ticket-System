@@ -44,21 +44,58 @@ export default function StaffTicketList() {
     const supabase = createClient()
     try {
       setLoading(true)
-      const { data, error } = await supabase
+      
+      // Get all tickets with user role information
+      // We need to join with users table to filter out staff tickets
+      const { data: ticketsData, error: ticketsError } = await supabase
         .from('tickets')
         .select('*')
       
-      // Sort by id descending (bigint, so higher ID = newer)
-      if (data) {
-        data.sort((a: any, b: any) => {
-          const aId = typeof a.id === 'number' ? a.id : parseInt(String(a.id), 10)
-          const bId = typeof b.id === 'number' ? b.id : parseInt(String(b.id), 10)
-          return bId - aId // Descending order (newest first)
-        })
-      }
+      if (ticketsError) throw ticketsError
 
-      if (error) throw error
-      setTickets(data || [])
+      // Get all user IDs that are staff (to exclude their tickets)
+      const { data: staffUsers, error: staffError } = await supabase
+        .from('users')
+        .select('id')
+        .eq('role', 'staff')
+      
+      if (staffError) throw staffError
+      
+      const staffUserIds = new Set((staffUsers || []).map(u => u.id))
+      
+      // Filter to only show tickets from students (not staff) and only open/in_progress tickets
+      const studentTickets = (ticketsData || []).filter((ticket: any) => {
+        // Only show tickets from students (userid not in staff list)
+        const isStudentTicket = !ticket.userid || !staffUserIds.has(ticket.userid)
+        // Only show open or in_progress tickets
+        const isOpen = ticket.status === 'open' || ticket.status === 'in_progress'
+        return isStudentTicket && isOpen
+      })
+      
+      // Sort by urgency first, then by submission time (newest first)
+      const urgencyOrder: Record<string, number> = {
+        critical: 4,
+        high: 3,
+        medium: 2,
+        low: 1,
+      }
+      
+      studentTickets.sort((a: any, b: any) => {
+        // First sort by urgency (critical > high > medium > low)
+        const aUrgency = urgencyOrder[a.urgency || 'medium'] || 2
+        const bUrgency = urgencyOrder[b.urgency || 'medium'] || 2
+        if (aUrgency !== bUrgency) {
+          return bUrgency - aUrgency // Higher urgency first
+        }
+        
+        // Then sort by submission time (newest first)
+        // Use id as proxy for time (higher ID = newer)
+        const aId = typeof a.id === 'number' ? a.id : parseInt(String(a.id), 10)
+        const bId = typeof b.id === 'number' ? b.id : parseInt(String(b.id), 10)
+        return bId - aId // Descending order (newest first)
+      })
+
+      setTickets(studentTickets)
     } catch (err: any) {
       console.error('Error loading tickets:', err)
     } finally {
@@ -166,7 +203,8 @@ export default function StaffTicketList() {
     }
   }
 
-  const filteredTickets = tickets.filter(t => t.status !== 'closed' && t.status !== undefined)
+  // Tickets are already filtered to only open/in_progress student tickets in loadTickets
+  const filteredTickets = tickets
 
   if (loading) {
     return (

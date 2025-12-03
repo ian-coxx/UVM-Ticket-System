@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function Home() {
@@ -14,6 +15,11 @@ export default async function Home() {
       .eq('id', user.id)
       .single()
     userRole = profile?.role || null
+    
+    // Redirect staff to staff portal
+    if (userRole === 'staff') {
+      redirect('/staff')
+    }
   }
   
   return (

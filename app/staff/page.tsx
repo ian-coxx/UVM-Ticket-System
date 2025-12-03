@@ -111,7 +111,8 @@ export default function StaffPage() {
             </button>
           </div>
         </div>
-        <h1 className="text-3xl font-bold text-uvm-dark mb-6">Staff Dashboard</h1>
+        <h1 className="text-3xl font-bold text-uvm-dark mb-2">Staff Dashboard</h1>
+        <p className="text-gray-600 mb-6">Open tickets from students, sorted by urgency</p>
         <StaffTicketList />
       </div>
     </main>
