@@ -159,29 +159,29 @@ export default function TicketForm() {
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
             Your email address <span className="text-red-500">*</span>
-          </label>
-          <input
-            {...register('email')}
-            type="email"
-            id="email"
-            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
-            placeholder="your.email@uvm.edu"
-          />
-          {errors.email && (
-            <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
-          )}
-        </div>
+            </label>
+            <input
+              {...register('email')}
+              type="email"
+              id="email"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
+              placeholder="your.email@uvm.edu"
+            />
+            {errors.email && (
+              <p className="mt-1 text-sm text-red-600">{errors.email.message}</p>
+            )}
+          </div>
 
-        <div>
+          <div>
           <label htmlFor="operating_system" className="block text-sm font-medium text-gray-700 mb-2">
             Device operating system <span className="text-red-500">*</span>
-          </label>
-          <select
+            </label>
+            <select
             {...register('operating_system')}
             id="operating_system"
             className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white appearance-none bg-[url('data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2212%22%20height%3D%2212%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cpath%20fill%3D%22%23333%22%20d%3D%22M6%209L1%204h10z%22%2F%3E%3C%2Fsvg%3E')] bg-no-repeat bg-right pr-10"
             style={{ backgroundPosition: 'right 0.75rem center' }}
-          >
+            >
             <option value="">Select an option ...</option>
             <option value="Windows">Windows</option>
             <option value="macOS">macOS</option>
@@ -189,16 +189,16 @@ export default function TicketForm() {
             <option value="iOS">iOS</option>
             <option value="Android">Android</option>
             <option value="Other">Other</option>
-          </select>
+            </select>
           {errors.operating_system && (
             <p className="mt-1 text-sm text-red-600">{errors.operating_system.message}</p>
           )}
-        </div>
+          </div>
 
-        <div>
+          <div>
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
             Description of your issue <span className="text-red-500">*</span>
-          </label>
+            </label>
           <textarea
             {...register('description')}
             id="description"
