@@ -5,14 +5,16 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-export default function LoginPage() {
+export default function StaffSignupPage() {
   const router = useRouter()
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setMessage(null)
@@ -37,49 +39,64 @@ export default function LoginPage() {
       return
     }
 
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-
-      if (error) throw error
-
-      // Check if user profile exists, create if it doesn't
-      if (data.user) {
-        const { data: userProfile, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', data.user.id)
-          .single()
-
-        if (profileError && (profileError.code === 'PGRST116' || profileError.message?.includes('No rows'))) {
-          // User profile doesn't exist, create it
-          const { error: insertError } = await supabase
-            .from('users')
-            .insert({
-              id: data.user.id,
-              email: data.user.email || '',
-              name: data.user.user_metadata?.name || data.user.email?.split('@')[0] || null,
-              role: 'user',
-              department: 'student',
-            })
-
-          if (insertError) {
-            console.error('Error creating user profile:', insertError)
-          }
-        }
-      }
-
-      // Redirect to home page
-      router.push('/')
-      router.refresh()
-    } catch (error: any) {
-      console.error('Error signing in:', error)
+    // Validate password match
+    if (password !== confirmPassword) {
       setMessage({
         type: 'error',
-        text: error.message || 'Invalid email or password. Please try again.',
+        text: 'Passwords do not match',
+      })
+      setLoading(false)
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      
+      // Sign up the user
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            name: name || email.split('@')[0],
+          },
+        },
+      })
+
+      if (signUpError) throw signUpError
+
+      if (authData.user) {
+        // Create staff profile in public.users table with role='staff'
+        const { error: profileError } = await supabase
+          .from('users')
+          .insert({
+            id: authData.user.id,
+            email: authData.user.email || '',
+            name: name || authData.user.email?.split('@')[0] || null,
+            role: 'staff', // Set as staff
+            department: 'staff', // Set department as staff
+          })
+
+        if (profileError) {
+          console.error('Error creating staff profile:', profileError)
+          // Don't fail signup if profile creation fails, but log it
+        }
+
+        setMessage({
+          type: 'success',
+          text: 'Staff account created successfully! Redirecting to login...',
+        })
+
+        // Wait a moment then redirect to login
+        setTimeout(() => {
+          router.push('/login')
+        }, 2000)
+      }
+    } catch (error: any) {
+      console.error('Error signing up:', error)
+      setMessage({
+        type: 'error',
+        text: error.message || 'Failed to create staff account. Please try again.',
       })
     } finally {
       setLoading(false)
@@ -89,9 +106,9 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-8">
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
-        <h1 className="text-3xl font-bold text-uvm-dark mb-2">Sign In</h1>
+        <h1 className="text-3xl font-bold text-uvm-dark mb-2">Staff Sign Up</h1>
         <p className="text-gray-600 mb-6">
-          Enter your @uvm.edu email and password to sign in
+          Create a staff account with your @uvm.edu email address
         </p>
 
         {message && (
@@ -106,10 +123,24 @@ export default function LoginPage() {
           </div>
         )}
 
-        <form onSubmit={handleLogin} className="space-y-4">
+        <form onSubmit={handleSignup} className="space-y-4">
+          <div>
+            <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-2">
+              Name (Optional)
+            </label>
+            <input
+              type="text"
+              id="name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your name"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
+            />
+          </div>
+
           <div>
             <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-              UVM Email Address
+              UVM Email Address *
             </label>
             <input
               type="email"
@@ -127,14 +158,33 @@ export default function LoginPage() {
 
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-              Password
+              Password *
             </label>
             <input
               type="password"
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter your password"
+              placeholder="At least 6 characters"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
+              required
+              minLength={6}
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Password must be at least 6 characters
+            </p>
+          </div>
+
+          <div>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              Confirm Password *
+            </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm your password"
               className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-uvm-green focus:border-transparent text-gray-900 bg-white"
               required
               minLength={6}
@@ -146,27 +196,27 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full bg-uvm-green text-white py-3 px-6 rounded-md font-semibold hover:bg-opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Signing in...' : 'Sign In'}
+            {loading ? 'Creating staff account...' : 'Create Staff Account'}
           </button>
         </form>
 
         <div className="mt-6 text-center space-y-2">
           <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
+            Already have an account?{' '}
+            <Link
+              href="/login"
+              className="text-uvm-green hover:underline font-medium"
+            >
+              Sign in
+            </Link>
+          </p>
+          <p className="text-sm text-gray-600">
+            Not a staff member?{' '}
             <Link
               href="/signup"
               className="text-uvm-green hover:underline font-medium"
             >
-              Sign up
-            </Link>
-          </p>
-          <p className="text-sm text-gray-600">
-            Staff member?{' '}
-            <Link
-              href="/staff/signup"
-              className="text-uvm-green hover:underline font-medium"
-            >
-              Staff sign up
+              Sign up as a student
             </Link>
           </p>
           <Link
