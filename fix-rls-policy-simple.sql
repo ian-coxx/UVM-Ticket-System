@@ -17,3 +17,4 @@ CREATE POLICY "Allow authenticated users to insert tickets" ON tickets
   FOR INSERT
   WITH CHECK (auth.uid() IS NOT NULL);
 
+

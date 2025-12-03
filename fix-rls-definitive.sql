@@ -32,3 +32,4 @@ SELECT policyname, cmd, roles, with_check
 FROM pg_policies 
 WHERE tablename = 'tickets' AND cmd = 'INSERT';
 
+

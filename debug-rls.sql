@@ -24,3 +24,4 @@ WHERE tablename = 'tickets';
 -- This will show what auth.uid() returns
 SELECT auth.uid() as current_user_id;
 
+

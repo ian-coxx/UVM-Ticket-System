@@ -26,3 +26,4 @@ FROM information_schema.columns
 WHERE table_name = 'tickets'
 ORDER BY ordinal_position;
 
+

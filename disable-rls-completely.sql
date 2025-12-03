@@ -16,3 +16,4 @@ WHERE tablename = 'tickets';
 -- After testing, if tickets work, re-enable with:
 -- ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 
+

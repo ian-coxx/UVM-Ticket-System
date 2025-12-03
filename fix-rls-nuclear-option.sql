@@ -8,3 +8,4 @@ ALTER TABLE tickets DISABLE ROW LEVEL SECURITY;
 -- After testing, if tickets work, then RLS is definitely the issue
 -- Re-enable with: ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
 
+
