@@ -117,12 +117,18 @@ export default function TicketDetailPage() {
       // Get user info for each message
       const messagesWithUsers = await Promise.all(
         (data || []).map(async (msg) => {
-          const { data: profile } = await supabase
-            .from('users')
-            .select('name, email')
-            .eq('id', msg.user_id)
-            .single()
-            .catch(() => ({ data: null }))
+          let profile = null
+          try {
+            const { data: profileData } = await supabase
+              .from('users')
+              .select('name, email')
+              .eq('id', msg.user_id)
+              .single()
+            profile = profileData
+          } catch (err) {
+            // Profile not found or error - use null
+            profile = null
+          }
 
           return {
             ...msg,
