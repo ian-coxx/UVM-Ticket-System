@@ -17,16 +17,6 @@ export default function LoginPage() {
     setLoading(true)
     setMessage(null)
 
-    // Validate @uvm.edu email
-    if (!email.endsWith('@uvm.edu')) {
-      setMessage({
-        type: 'error',
-        text: 'Please use a @uvm.edu email address',
-      })
-      setLoading(false)
-      return
-    }
-
     // Validate password
     if (password.length < 6) {
       setMessage({
@@ -91,7 +81,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-8">
         <h1 className="text-3xl font-bold text-uvm-dark mb-2">Sign In</h1>
         <p className="text-gray-600 mb-6">
-          Enter your @uvm.edu email and password to sign in
+          Enter your email and password to sign in
         </p>
 
         {message && (
