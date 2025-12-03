@@ -4,9 +4,12 @@ import { createChat } from '@n8n/chat'
 
 export default function AgentWindow() {
     useEffect(() => {
-        // Only initialize chat if webhook URL is configured
-        // Use environment variable for production webhook URL
-        const chatWebhookUrl = process.env.NEXT_PUBLIC_N8N_CHAT_WEBHOOK_URL
+        // Get webhook URL from environment variable or use default for development
+        // Priority: 1) Environment variable (production), 2) Default localhost (development)
+        const chatWebhookUrl = process.env.NEXT_PUBLIC_N8N_CHAT_WEBHOOK_URL || 
+            (typeof window !== 'undefined' && window.location.hostname === 'localhost' 
+                ? 'http://localhost:5678/webhook/3098e03b-da40-4ed3-93d4-47b67786dcc3/chat'
+                : null)
         
         if (!chatWebhookUrl) {
             // Silently skip chat initialization if webhook URL is not configured
