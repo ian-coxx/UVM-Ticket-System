@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
@@ -10,13 +10,30 @@ export default function Home() {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const loadingCompleteRef = useRef(false)
+  const redirectingRef = useRef(false)
 
   useEffect(() => {
     const supabase = createClient()
+    let mounted = true
+    
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (mounted && !loadingCompleteRef.current) {
+        console.error('Home page loading timeout - showing page anyway')
+        loadingCompleteRef.current = true
+        setLoading(false)
+      }
+    }, 5000) // 5 second timeout
     
     // Get current user and check role
     supabase.auth.getUser().then(async ({ data: { user }, error: authError }) => {
+      if (!mounted) return
+      
+      clearTimeout(timeoutId)
+      
       if (authError || !user) {
+        loadingCompleteRef.current = true
         setUser(null)
         setLoading(false)
         return
@@ -32,21 +49,38 @@ export default function Home() {
           .eq('id', user.id)
           .single()
 
+        if (!mounted) return
+
         if (profileError) {
           console.error('Profile query error:', profileError)
+          loadingCompleteRef.current = true
           setLoading(false)
           return
         }
 
-        if (profile && profile.role === 'staff') {
+        if (profile && profile.role === 'staff' && !redirectingRef.current) {
           // Redirect staff to staff portal
+          redirectingRef.current = true
+          loadingCompleteRef.current = true
+          setLoading(false)
           router.push('/staff')
           return
         }
 
+        loadingCompleteRef.current = true
         setLoading(false)
       } catch (error) {
         console.error('Error checking profile:', error)
+        if (mounted) {
+          loadingCompleteRef.current = true
+          setLoading(false)
+        }
+      }
+    }).catch((error) => {
+      console.error('Error getting user:', error)
+      clearTimeout(timeoutId)
+      if (mounted) {
+        loadingCompleteRef.current = true
         setLoading(false)
       }
     })
@@ -55,7 +89,10 @@ export default function Home() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return
+      
       if (!session?.user) {
+        loadingCompleteRef.current = true
         setUser(null)
         setLoading(false)
         return
@@ -70,25 +107,39 @@ export default function Home() {
           .eq('id', session.user.id)
           .single()
 
+        if (!mounted) return
+
         if (profileError) {
           console.error('Profile query error in auth change:', profileError)
+          loadingCompleteRef.current = true
           setLoading(false)
           return
         }
 
-        if (profile && profile.role === 'staff') {
+        if (profile && profile.role === 'staff' && !redirectingRef.current) {
+          redirectingRef.current = true
+          loadingCompleteRef.current = true
+          setLoading(false)
           router.push('/staff')
           return
         }
 
+        loadingCompleteRef.current = true
         setLoading(false)
       } catch (error) {
         console.error('Error checking profile in auth change:', error)
-        setLoading(false)
+        if (mounted) {
+          loadingCompleteRef.current = true
+          setLoading(false)
+        }
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+      subscription.unsubscribe()
+    }
   }, [router])
   
   if (loading) {
