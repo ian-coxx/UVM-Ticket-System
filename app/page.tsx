@@ -101,8 +101,19 @@ export default async function Home() {
                 </h2>
                 <p className="text-gray-600">
                   Sign up with your @uvm.edu email to get started
-              </p>
-            </Link>
+                </p>
+              </Link>
+              <Link
+                href="/staff/signup"
+                className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow"
+              >
+                <h2 className="text-2xl font-semibold text-uvm-green mb-4">
+                  Staff Sign Up
+                </h2>
+                <p className="text-gray-600">
+                  Create a staff account to access the technician portal
+                </p>
+              </Link>
             </>
           )}
         </div>
