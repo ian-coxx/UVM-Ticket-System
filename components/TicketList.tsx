@@ -75,24 +75,43 @@ export default function TicketList({ userId }: { userId?: string }) {
     const supabase = createClient()
     loadTickets()
     
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('tickets-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'tickets',
-        },
-        () => {
-          loadTickets()
-        }
-      )
-      .subscribe()
+    // Subscribe to real-time updates (optional - fails gracefully if Realtime is disabled)
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    try {
+      channel = supabase
+        .channel('tickets-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'tickets',
+          },
+          () => {
+            loadTickets()
+          }
+        )
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            // Successfully subscribed
+          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            // Realtime is not available - silently fail (app works without it)
+            console.debug('Realtime subscription unavailable, continuing without auto-refresh')
+          }
+        })
+    } catch (error) {
+      // Realtime subscription failed - app works fine without it
+      console.debug('Realtime subscription failed, continuing without auto-refresh:', error)
+    }
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) {
+        try {
+          supabase.removeChannel(channel)
+        } catch (error) {
+          // Ignore cleanup errors
+        }
+      }
     }
   }, [userId])
 
