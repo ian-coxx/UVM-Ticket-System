@@ -1,58 +1,108 @@
+'use client'
+
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import type { User } from '@supabase/supabase-js'
 
-export default async function Home() {
-  let user = null
-  let userRole: 'user' | 'staff' | null = null
+export default function Home() {
+  const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  try {
-    const supabase = await createClient()
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+  useEffect(() => {
+    const supabase = createClient()
     
-    // If auth fails, continue without user (show public page)
-    if (authError) {
-      console.error('Auth error:', authError)
-    } else {
-      user = authUser
-    }
-    
-    // Get user profile to check role (with error handling)
-    if (user) {
+    // Get current user and check role
+    supabase.auth.getUser().then(async ({ data: { user }, error: authError }) => {
+      if (authError || !user) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      setUser(user)
+
+      // Get user profile to check role
       try {
         const { data: profile, error: profileError } = await supabase
           .from('users')
           .select('role')
           .eq('id', user.id)
           .single()
-        
+
         if (profileError) {
-          // Log the error but don't block the page
-          console.error('Profile query error on home page:', profileError)
-          console.error('User ID:', user.id)
-        } else if (profile) {
-          // Type assertion to ensure we get the correct type
-          const role = profile?.role as 'user' | 'staff' | null
-          userRole = role || null
-          
-          // Redirect staff to staff portal - do this immediately
-          if (userRole === 'staff') {
-            console.log('Redirecting staff user to /staff')
-            redirect('/staff')
-          }
-        } else {
-          console.warn('No profile found for user:', user.id)
+          console.error('Profile query error:', profileError)
+          setLoading(false)
+          return
         }
+
+        if (profile && profile.role === 'staff') {
+          // Redirect staff to staff portal
+          router.push('/staff')
+          return
+        }
+
+        setLoading(false)
       } catch (error) {
-        // If profile query fails, continue without role
-        console.error('Profile query error on home page:', error)
+        console.error('Error checking profile:', error)
+        setLoading(false)
       }
-    }
-  } catch (error) {
-    // If Supabase connection fails, still render the page
-    console.error('Supabase connection error:', error)
-  }
+    })
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!session?.user) {
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      setUser(session.user)
+
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', session.user.id)
+          .single()
+
+        if (profileError) {
+          console.error('Profile query error in auth change:', profileError)
+          setLoading(false)
+          return
+        }
+
+        if (profile && profile.role === 'staff') {
+          router.push('/staff')
+          return
+        }
+
+        setLoading(false)
+      } catch (error) {
+        console.error('Error checking profile in auth change:', error)
+        setLoading(false)
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [router])
   
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
