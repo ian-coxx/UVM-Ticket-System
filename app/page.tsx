@@ -3,26 +3,47 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
 export default async function Home() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
-  
-  // Get user profile to check role
+  let user = null
   let userRole: 'user' | 'staff' | null = null
-  if (user) {
-    const { data: profile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .single()
+
+  try {
+    const supabase = await createClient()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
     
-    // Type assertion to ensure we get the correct type
-    const role = profile?.role as 'user' | 'staff' | null
-    userRole = role || null
-    
-    // Redirect staff to staff portal
-    if (userRole === 'staff') {
-      redirect('/staff')
+    // If auth fails, continue without user (show public page)
+    if (authError) {
+      console.error('Auth error:', authError)
+    } else {
+      user = authUser
     }
+    
+    // Get user profile to check role (with error handling)
+    if (user) {
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        
+        if (!profileError && profile) {
+          // Type assertion to ensure we get the correct type
+          const role = profile?.role as 'user' | 'staff' | null
+          userRole = role || null
+          
+          // Redirect staff to staff portal
+          if (userRole === 'staff') {
+            redirect('/staff')
+          }
+        }
+      } catch (error) {
+        // If profile query fails, continue without role
+        console.error('Profile query error:', error)
+      }
+    }
+  } catch (error) {
+    // If Supabase connection fails, still render the page
+    console.error('Supabase connection error:', error)
   }
   
   return (
