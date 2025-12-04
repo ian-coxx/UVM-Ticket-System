@@ -24,7 +24,14 @@ export default function AgentWindow() {
                 }
 
                 // Dynamically import to prevent blocking initial page load
-                const { createChat } = await import('@n8n/chat')
+                // Use type assertion to handle optional dependency
+                // @ts-ignore - @n8n/chat may not be available
+                const n8nChat = await import('@n8n/chat' as string).catch(() => null)
+                if (!n8nChat) {
+                    console.warn('@n8n/chat not available')
+                    return
+                }
+                const { createChat } = n8nChat
                 
                 createChat({
                     webhookUrl: chatWebhookUrl,
