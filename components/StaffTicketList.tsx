@@ -51,7 +51,12 @@ export default function StaffTicketList() {
         .from('tickets')
         .select('*')
       
-      if (ticketsError) throw ticketsError
+      if (ticketsError) {
+        console.error('Error loading tickets:', ticketsError)
+        throw ticketsError
+      }
+
+      console.log('All tickets loaded:', ticketsData?.length || 0, ticketsData)
 
       // Get all user IDs that are staff (to exclude their tickets)
       const { data: staffUsers, error: staffError } = await supabase
@@ -59,18 +64,35 @@ export default function StaffTicketList() {
         .select('id')
         .eq('role', 'staff')
       
-      if (staffError) throw staffError
+      if (staffError) {
+        console.error('Error loading staff users:', staffError)
+        // Don't throw - just continue without filtering staff
+      }
       
       const staffUserIds = new Set((staffUsers || []).map(u => u.id))
+      console.log('Staff user IDs:', Array.from(staffUserIds))
       
       // Filter to only show tickets from students (not staff) and only open/in_progress tickets
+      // If status is null/undefined, treat as 'open' (default)
       const studentTickets = (ticketsData || []).filter((ticket: any) => {
         // Only show tickets from students (userid not in staff list)
         const isStudentTicket = !ticket.userid || !staffUserIds.has(ticket.userid)
-        // Only show open or in_progress tickets
-        const isOpen = ticket.status === 'open' || ticket.status === 'in_progress'
-        return isStudentTicket && isOpen
+        // Only show open or in_progress tickets (or null/undefined status which we treat as open)
+        const isOpen = !ticket.status || ticket.status === 'open' || ticket.status === 'in_progress'
+        const shouldShow = isStudentTicket && isOpen
+        if (!shouldShow) {
+          console.log('Filtered out ticket:', {
+            id: ticket.id,
+            userid: ticket.userid,
+            isStudent: isStudentTicket,
+            status: ticket.status,
+            isOpen
+          })
+        }
+        return shouldShow
       })
+      
+      console.log('Student tickets after filtering:', studentTickets.length)
       
       // Sort by urgency first, then by submission time (newest first)
       const urgencyOrder: Record<string, number> = {
