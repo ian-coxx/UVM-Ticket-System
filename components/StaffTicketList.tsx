@@ -283,11 +283,18 @@ export default function StaffTicketList() {
               <p className="text-gray-600 text-sm line-clamp-2 mb-2">
                 {ticket.issue_description || ticket.description || 'No description'}
               </p>
-              {ticket.email && (
-                <p className="text-xs text-gray-500">
-                  {ticket.email}
-                </p>
-              )}
+              <div className="flex justify-between items-center mt-2">
+                {ticket.email && (
+                  <p className="text-xs text-gray-500">
+                    {ticket.email}
+                  </p>
+                )}
+                {ticket.created_at && (
+                  <p className="text-xs text-gray-500 ml-auto">
+                    Submitted: {format(new Date(ticket.created_at), 'MMM d, yyyy h:mm a')}
+                  </p>
+                )}
+              </div>
             </div>
           ))
         )}
@@ -305,6 +312,14 @@ export default function StaffTicketList() {
                   <h3 className="font-semibold text-gray-700">Ticket ID</h3>
                   <p className="text-gray-900">#{selectedTicket.id}</p>
                 </div>
+                {selectedTicket.created_at && (
+                  <div>
+                    <h3 className="font-semibold text-gray-700">Submitted</h3>
+                    <p className="text-gray-900">
+                      {format(new Date(selectedTicket.created_at), 'MMMM d, yyyy \'at\' h:mm a')}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <h3 className="font-semibold text-gray-700">Description</h3>
                   <p className="text-gray-900 whitespace-pre-wrap">
