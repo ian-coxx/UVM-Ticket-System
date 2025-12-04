@@ -40,3 +40,4 @@ TO authenticated
 WITH CHECK (auth.uid() = id);
 
 
+

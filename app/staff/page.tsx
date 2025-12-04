@@ -123,13 +123,7 @@ export default function StaffPage() {
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-center">
-          <Link
-            href="/"
-            className="text-uvm-green hover:underline inline-flex items-center"
-          >
-            ← Back to Home
-          </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 ml-auto">
             <span className="text-sm text-gray-600">
               {user.email}
             </span>
