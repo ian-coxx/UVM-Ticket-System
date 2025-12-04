@@ -1,174 +1,124 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import StaffTicketList from '@/components/StaffTicketList'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
-import type { User as UserProfile } from '@/types/database'
 
 export default function StaffPage() {
-  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [loading, setLoading] = useState(true)
-  const loadingCompleteRef = useRef(false)
+  const [isStaff, setIsStaff] = useState<boolean | null>(null) // null = checking, true = staff, false = not staff
+  const [checking, setChecking] = useState(true)
 
   useEffect(() => {
     const supabase = createClient()
     let mounted = true
     
-    // Set a timeout to prevent infinite loading
-    const timeoutId = setTimeout(() => {
-      if (mounted && !loadingCompleteRef.current) {
-        console.error('Loading timeout - redirecting to home')
-        loadingCompleteRef.current = true
-        // Use window.location for hard redirect to ensure it works
-        window.location.href = '/'
-      }
-    }, 5000) // 5 second timeout
-    
-    // Get current user and profile
-    supabase.auth.getUser().then(async ({ data: { user }, error: authError }) => {
+    // Get user first - don't block on profile check
+    supabase.auth.getUser().then(({ data: { user }, error: authError }) => {
       if (!mounted) return
       
-      clearTimeout(timeoutId)
-      
       if (authError || !user) {
-        loadingCompleteRef.current = true
-        setLoading(false)
-        router.push('/login?redirect=/staff')
+        setUser(null)
+        setChecking(false)
+        setIsStaff(false)
+        // Redirect to login after a moment
+        setTimeout(() => {
+          if (mounted) window.location.href = '/login?redirect=/staff'
+        }, 1000)
         return
       }
 
       setUser(user)
-
-      // Get user profile to check role
-      try {
-        const { data: profile, error: profileError } = await supabase
+      setChecking(false)
+      
+      // Check role in background - don't block page render
+      Promise.resolve(
+        supabase
           .from('users')
-          .select('*')
+          .select('role')
           .eq('id', user.id)
           .single()
-
-        if (!mounted) return
-
-        if (profileError) {
-          console.error('Profile query error:', profileError)
-          loadingCompleteRef.current = true
-          setLoading(false)
-          window.location.href = '/'
-          return
-        }
-
-        if (!profile || profile.role !== 'staff') {
-          console.log('User is not staff, redirecting to home')
-          loadingCompleteRef.current = true
-          setLoading(false)
-          window.location.href = '/'
-          return
-        }
-
-        setUserProfile(profile)
-        loadingCompleteRef.current = true
-        setLoading(false)
-      } catch (error) {
-        console.error('Error fetching profile:', error)
-        if (mounted) {
-          loadingCompleteRef.current = true
-          setLoading(false)
-          window.location.href = '/'
-        }
-      }
-    }).catch((error) => {
-      console.error('Error getting user:', error)
-      clearTimeout(timeoutId)
+      )
+        .then((result: any) => {
+          if (!mounted) return
+          if (result?.data?.role === 'staff') {
+            setIsStaff(true)
+          } else {
+            setIsStaff(false)
+            // Redirect non-staff after showing message
+            setTimeout(() => {
+              if (mounted) window.location.href = '/'
+            }, 2000)
+          }
+        })
+        .catch(() => {
+          // If query fails, assume not staff for now
+          if (mounted) {
+            setIsStaff(false)
+            console.error('Could not verify staff status - RLS may be blocking query')
+          }
+        })
+    }).catch(() => {
       if (mounted) {
-        loadingCompleteRef.current = true
-        setLoading(false)
-        window.location.href = '/login?redirect=/staff'
+        setUser(null)
+        setChecking(false)
+        setIsStaff(false)
       }
     })
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return
       
       if (!session?.user) {
-        loadingCompleteRef.current = true
-        setLoading(false)
-        router.push('/login?redirect=/staff')
+        setUser(null)
+        setIsStaff(false)
+        window.location.href = '/login?redirect=/staff'
         return
       }
 
-      try {
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-
-        if (!mounted) return
-
-        if (profileError || !profile || profile.role !== 'staff') {
-          loadingCompleteRef.current = true
-          setLoading(false)
-          window.location.href = '/'
-          return
-        }
-
-        setUser(session.user)
-        setUserProfile(profile)
-        loadingCompleteRef.current = true
-        setLoading(false)
-      } catch (error) {
-        console.error('Error fetching profile in auth change:', error)
-        if (mounted) {
-          loadingCompleteRef.current = true
-          setLoading(false)
-          window.location.href = '/'
-        }
-      }
+      setUser(session.user)
     })
 
     return () => {
       mounted = false
-      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
-  }, [router])
+  }, [])
 
-  if (loading) {
+  // Show page immediately - don't wait for role check
+  if (!user) {
     return (
       <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center py-12">
-            <p className="text-gray-600">Loading...</p>
+            <p className="text-gray-600">Checking authentication...</p>
           </div>
         </div>
       </main>
     )
   }
 
-  if (!user || !userProfile) {
-    // If we don't have user/profile but loading is done, redirect
-    if (!loading) {
-      return (
-        <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-          <div className="max-w-7xl mx-auto">
-            <div className="text-center py-12">
-              <p className="text-gray-600">Redirecting...</p>
-            </div>
+  // Show access denied if we confirmed they're not staff
+  if (isStaff === false && !checking) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h1>
+            <p className="text-gray-600 mb-4">You must be a staff member to access this page.</p>
+            <p className="text-sm text-gray-500">Redirecting to home page...</p>
           </div>
-        </main>
-      )
-    }
-    return null
+        </div>
+      </main>
+    )
   }
 
+  // Show staff dashboard (even if role check is still pending - optimistic render)
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
@@ -181,13 +131,16 @@ export default function StaffPage() {
           </Link>
           <div className="flex items-center gap-4">
             <span className="text-sm text-gray-600">
-              {userProfile.name || user.email}
+              {user.email}
             </span>
+            {isStaff === null && (
+              <span className="text-xs text-gray-400">(Verifying staff status...)</span>
+            )}
             <button
               onClick={async () => {
                 const supabase = createClient()
                 await supabase.auth.signOut()
-                router.push('/')
+                window.location.href = '/'
               }}
               className="text-gray-600 hover:text-gray-800 text-sm"
             >
@@ -197,7 +150,13 @@ export default function StaffPage() {
         </div>
         <h1 className="text-3xl font-bold text-uvm-dark mb-2">Staff Dashboard</h1>
         <p className="text-gray-600 mb-6">Open tickets from students, sorted by urgency</p>
-        <StaffTicketList />
+        {isStaff === null ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading tickets...</p>
+          </div>
+        ) : (
+          <StaffTicketList />
+        )}
       </div>
     </main>
   )
