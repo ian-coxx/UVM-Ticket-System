@@ -1,46 +1,121 @@
+'use client'
+
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase/server'
+import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import type { User } from '@supabase/supabase-js'
 
-export default async function Home() {
-  let user = null
-  let userRole: 'user' | 'staff' | null = null
+export default function Home() {
+  const router = useRouter()
+  const [user, setUser] = useState<User | null>(null)
+  const [loading, setLoading] = useState(true)
+  const loadingCompleteRef = useRef(false)
+  const redirectAttemptedRef = useRef(false)
 
-  try {
-    const supabase = await createClient()
-    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
+  useEffect(() => {
+    const supabase = createClient()
+    let mounted = true
     
-    // If auth fails, continue without user (show public page)
-    if (!authError && authUser) {
-      user = authUser
-      
-      // Get user profile to check role (with error handling)
-      try {
-        const { data: profile, error: profileError } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-        
-        if (!profileError && profile) {
-          // Type assertion to ensure we get the correct type
-          const role = profile?.role as 'user' | 'staff' | null
-          userRole = role || null
-          
-          // Redirect staff to staff portal BEFORE rendering
-          // This prevents the flash of student content
-          if (userRole === 'staff') {
-            redirect('/staff')
-          }
-        }
-      } catch (error) {
-        // If profile query fails, continue without role
-        console.error('Profile query error:', error)
+    // Set a timeout to prevent infinite loading
+    const timeoutId = setTimeout(() => {
+      if (mounted && !loadingCompleteRef.current) {
+        loadingCompleteRef.current = true
+        setLoading(false)
       }
+    }, 3000) // 3 second timeout
+    
+    // Get current user
+    supabase.auth.getUser().then(async ({ data: { user }, error: authError }) => {
+      if (!mounted) return
+      
+      clearTimeout(timeoutId)
+      
+      if (authError || !user) {
+        loadingCompleteRef.current = true
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      setUser(user)
+      
+      // Try to get profile and redirect if staff, but don't block on it
+      if (!redirectAttemptedRef.current) {
+        redirectAttemptedRef.current = true
+        try {
+          const profilePromise = supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+          
+          // Add timeout to profile query
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Timeout')), 2000)
+          )
+          
+          const result = await Promise.race([profilePromise, timeoutPromise]) as any
+          
+          if (result && !result.error && result.data && result.data.role === 'staff') {
+            // Redirect staff to staff portal
+            window.location.href = '/staff'
+            return
+          }
+        } catch (error) {
+          // If profile query fails, just continue - don't block
+          console.error('Profile query failed, continuing:', error)
+        }
+      }
+      
+      loadingCompleteRef.current = true
+      setLoading(false)
+    }).catch((error) => {
+      console.error('Error getting user:', error)
+      clearTimeout(timeoutId)
+      if (mounted) {
+        loadingCompleteRef.current = true
+        setLoading(false)
+      }
+    })
+
+    // Listen for auth changes
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!mounted) return
+      
+      if (!session?.user) {
+        loadingCompleteRef.current = true
+        setUser(null)
+        setLoading(false)
+        return
+      }
+
+      setUser(session.user)
+      if (!loadingCompleteRef.current) {
+        loadingCompleteRef.current = true
+        setLoading(false)
+      }
+    })
+
+    return () => {
+      mounted = false
+      clearTimeout(timeoutId)
+      subscription.unsubscribe()
     }
-  } catch (error) {
-    // If Supabase connection fails, still render the page
-    console.error('Supabase connection error:', error)
+  }, [router])
+  
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-gray-600">Loading...</p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (

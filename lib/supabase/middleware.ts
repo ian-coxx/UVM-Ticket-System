@@ -65,36 +65,11 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
-  // Redirect staff users from home page to staff portal
-  // Only do this if we can quickly check the role, otherwise let the page handle it
-  if (request.nextUrl.pathname === '/' && user) {
-    try {
-      // Add a timeout to the profile query
-      const profilePromise = supabase
-        .from('users')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-      
-      // Race the query against a timeout
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Timeout')), 2000)
-      )
-      
-      const result = await Promise.race([profilePromise, timeoutPromise]) as any
-      
-      // Only redirect if we successfully got the profile and role is staff
-      if (result && !result.error && result.data && result.data.role === 'staff') {
-        const url = request.nextUrl.clone()
-        url.pathname = '/staff'
-        return NextResponse.redirect(url)
-      }
-      // If query fails or times out, just continue to home page (don't redirect)
-    } catch (error) {
-      // If profile query fails or times out, continue to home page (don't redirect)
-      // This prevents redirect loops and hanging
-    }
-  }
+  // Disable middleware redirect for now - let pages handle it client-side
+  // This prevents hanging if RLS blocks the profile query
+  // if (request.nextUrl.pathname === '/' && user) {
+  //   // Redirect handled by client-side code in app/page.tsx
+  // }
 
   // Protect submit route - require authentication
   if (request.nextUrl.pathname === '/submit') {
