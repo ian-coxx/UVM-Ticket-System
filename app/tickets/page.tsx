@@ -92,7 +92,16 @@ export default function TicketsPage() {
   }
 
   if (!user) {
-    return null
+    // Don't return null - show loading or redirect
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center py-12">
+            <p className="text-gray-600">Redirecting to login...</p>
+          </div>
+        </div>
+      </main>
+    )
   }
 
   return (
