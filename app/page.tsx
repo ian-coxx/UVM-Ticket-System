@@ -52,13 +52,16 @@ export default function Home() {
       if (!redirectAttemptedRef.current) {
         redirectAttemptedRef.current = true
         // Don't await - let it run in background
-        supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-          .then(({ data: profile, error: profileError }) => {
+        Promise.resolve(
+          supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+        )
+          .then((result: any) => {
             if (!mounted) return
+            const { data: profile, error: profileError } = result || {}
             if (!profileError && profile && profile.role === 'staff') {
               // Redirect staff to staff portal
               window.location.href = '/staff'
