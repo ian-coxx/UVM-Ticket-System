@@ -111,3 +111,4 @@ Run `fix-rls-policy.sql` in Supabase SQL Editor to set this up.
 4. ⏳ Configure n8n to update tickets after processing
 
 
+

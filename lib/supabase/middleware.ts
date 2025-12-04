@@ -35,6 +35,26 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
+  // Redirect staff users from home page to staff portal
+  if (request.nextUrl.pathname === '/' && user) {
+    try {
+      const { data: userProfile } = await supabase
+        .from('users')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (userProfile && userProfile.role === 'staff') {
+        const url = request.nextUrl.clone()
+        url.pathname = '/staff'
+        return NextResponse.redirect(url)
+      }
+    } catch (error) {
+      // If profile query fails, continue to home page
+      console.error('Error checking user role in middleware:', error)
+    }
+  }
+
   // Protect staff routes (but allow /staff/signup)
   if (request.nextUrl.pathname.startsWith('/staff') && request.nextUrl.pathname !== '/staff/signup') {
     if (!user) {
