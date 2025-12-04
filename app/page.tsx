@@ -1,119 +1,59 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { User } from '@supabase/supabase-js'
 
 export default function Home() {
-  const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(true)
-  const loadingCompleteRef = useRef(false)
-  const redirectAttemptedRef = useRef(false)
 
   useEffect(() => {
     const supabase = createClient()
     let mounted = true
     
-    // Set a timeout to prevent infinite loading - ALWAYS fire after 2 seconds
-    const timeoutId = setTimeout(() => {
+    // Get user in background - don't block render
+    supabase.auth.getUser().then(({ data: { user } }) => {
       if (mounted) {
-        console.log('Home page timeout - forcing render')
-        loadingCompleteRef.current = true
-        setLoading(false)
+        setUser(user || null)
+        
+        // Check if staff and redirect in background
+        if (user) {
+          Promise.resolve(
+            supabase
+              .from('users')
+              .select('role')
+              .eq('id', user.id)
+              .single()
+          )
+            .then((result: any) => {
+              if (mounted && result?.data?.role === 'staff') {
+                window.location.href = '/staff'
+              }
+            })
+            .catch(() => {
+              // Silently fail
+            })
+        }
       }
-    }, 2000) // 2 second timeout - shorter for faster UX
-    
-    // Get current user with timeout
-    const getUserPromise = supabase.auth.getUser()
-    const getUserTimeout = new Promise((resolve) => 
-      setTimeout(() => resolve({ data: { user: null }, error: { message: 'Timeout' } }), 1500)
-    )
-    
-    Promise.race([getUserPromise, getUserTimeout]).then(async (result: any) => {
-      if (!mounted) return
-      
-      clearTimeout(timeoutId)
-      
-      const { data: { user }, error: authError } = result || { data: { user: null }, error: null }
-      
-      if (authError || !user) {
-        loadingCompleteRef.current = true
-        setUser(null)
-        setLoading(false)
-        return
-      }
-
-      setUser(user)
-      
-      // Try to get profile and redirect if staff, but don't block on it
-      if (!redirectAttemptedRef.current) {
-        redirectAttemptedRef.current = true
-        // Don't await - let it run in background
-        Promise.resolve(
-          supabase
-            .from('users')
-            .select('role')
-            .eq('id', user.id)
-            .single()
-        )
-          .then((result: any) => {
-            if (!mounted) return
-            const { data: profile, error: profileError } = result || {}
-            if (!profileError && profile && profile.role === 'staff') {
-              // Redirect staff to staff portal
-              window.location.href = '/staff'
-            }
-          })
-          .catch(() => {
-            // Silently fail - don't block page render
-          })
-      }
-      
-      loadingCompleteRef.current = true
-      setLoading(false)
-    }).catch((error) => {
-      console.error('Error getting user:', error)
-      clearTimeout(timeoutId)
-      if (mounted) {
-        loadingCompleteRef.current = true
-        setLoading(false)
-      }
+    }).catch(() => {
+      // Silently fail - page still renders
     })
 
-    // Listen for auth changes (non-blocking)
+    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!mounted) return
-      
-      setUser(session?.user ?? null)
-      if (!loadingCompleteRef.current) {
-        loadingCompleteRef.current = true
-        setLoading(false)
+      if (mounted) {
+        setUser(session?.user ?? null)
       }
     })
 
     return () => {
       mounted = false
-      clearTimeout(timeoutId)
       subscription.unsubscribe()
     }
   }, [])
-  
-  if (loading) {
-    return (
-      <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-gray-600">Loading...</p>
-          </div>
-        </div>
-      </main>
-    )
-  }
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
