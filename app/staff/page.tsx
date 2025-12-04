@@ -24,10 +24,10 @@ export default function StaffPage() {
       if (mounted && !loadingCompleteRef.current) {
         console.error('Loading timeout - redirecting to home')
         loadingCompleteRef.current = true
-        setLoading(false)
-        router.push('/')
+        // Use window.location for hard redirect to ensure it works
+        window.location.href = '/'
       }
-    }, 10000) // 10 second timeout
+    }, 5000) // 5 second timeout
     
     // Get current user and profile
     supabase.auth.getUser().then(async ({ data: { user }, error: authError }) => {
@@ -58,7 +58,7 @@ export default function StaffPage() {
           console.error('Profile query error:', profileError)
           loadingCompleteRef.current = true
           setLoading(false)
-          router.push('/')
+          window.location.href = '/'
           return
         }
 
@@ -66,7 +66,7 @@ export default function StaffPage() {
           console.log('User is not staff, redirecting to home')
           loadingCompleteRef.current = true
           setLoading(false)
-          router.push('/')
+          window.location.href = '/'
           return
         }
 
@@ -78,7 +78,7 @@ export default function StaffPage() {
         if (mounted) {
           loadingCompleteRef.current = true
           setLoading(false)
-          router.push('/')
+          window.location.href = '/'
         }
       }
     }).catch((error) => {
@@ -87,7 +87,7 @@ export default function StaffPage() {
       if (mounted) {
         loadingCompleteRef.current = true
         setLoading(false)
-        router.push('/login?redirect=/staff')
+        window.location.href = '/login?redirect=/staff'
       }
     })
 
@@ -116,7 +116,7 @@ export default function StaffPage() {
         if (profileError || !profile || profile.role !== 'staff') {
           loadingCompleteRef.current = true
           setLoading(false)
-          router.push('/')
+          window.location.href = '/'
           return
         }
 
@@ -129,7 +129,7 @@ export default function StaffPage() {
         if (mounted) {
           loadingCompleteRef.current = true
           setLoading(false)
-          router.push('/')
+          window.location.href = '/'
         }
       }
     })
@@ -154,6 +154,18 @@ export default function StaffPage() {
   }
 
   if (!user || !userProfile) {
+    // If we don't have user/profile but loading is done, redirect
+    if (!loading) {
+      return (
+        <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+          <div className="max-w-7xl mx-auto">
+            <div className="text-center py-12">
+              <p className="text-gray-600">Redirecting...</p>
+            </div>
+          </div>
+        </main>
+      )
+    }
     return null
   }
 
