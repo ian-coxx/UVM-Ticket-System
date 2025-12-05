@@ -16,7 +16,7 @@ export default function AgentWindow() {
                     process.env.NEXT_PUBLIC_N8N_CHAT_WEBHOOK_URL ||
                     (window.location.hostname === 'localhost' 
                         ? 'http://localhost:5678/webhook/3098e03b-da40-4ed3-93d4-47b67786dcc3/chat'
-                        : null)
+                        : 'https://colinbutera.app.n8n.cloud/webhook/3098e03b-da40-4ed3-93d4-47b67786dcc3/chat')
                 
                 if (!chatWebhookUrl) {
                     // Silently skip if not configured

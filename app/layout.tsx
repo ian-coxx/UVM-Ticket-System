@@ -1,14 +1,13 @@
 import type { Metadata } from 'next'
 import './globals.css'
-
-// Temporarily disable agent to debug loading issue
-// import './chat-theme.css'
-// import dynamic from 'next/dynamic'
-// const AgentWindow = dynamic(() => import('../components/n8nAgent'), {
-//     ssr: false,
-//     loading: () => null,
-// })
-// import '@n8n/chat/style.css'
+import './chat-theme.css'
+import { Suspense } from 'react'
+import dynamic from 'next/dynamic'
+const AgentWindow = dynamic(() => import('../components/n8nAgent'), {
+    ssr: false,
+    loading: () => null,
+})
+import '@n8n/chat/style.css'
 
 export const metadata: Metadata = {
     title: 'UVM Ticket System',
@@ -22,10 +21,9 @@ export default function RootLayout({children,}: {
         <html lang="en">
             <body>
                 {children}
-                {/* Temporarily disabled to debug loading issue */}
-                {/* <Suspense fallback={null}>
+                <Suspense fallback={null}>
                     <AgentWindow />
-                </Suspense> */}
+                </Suspense>
             </body>
         </html>
     )
