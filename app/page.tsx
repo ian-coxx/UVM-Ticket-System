@@ -12,7 +12,14 @@ export default function Home() {
     const supabase = createClient()
     let mounted = true
     
-    // Get user in background - don't block render
+    // Get user immediately - check session first for faster load
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (mounted && session?.user) {
+        setUser(session.user)
+      }
+    })
+    
+    // Also get user to ensure we have the latest
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (mounted) {
         setUser(user || null)
@@ -58,6 +65,25 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
+        {user && (
+          <div className="mb-6 flex justify-end items-center">
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-600">
+                {user.email}
+              </span>
+              <button
+                onClick={async () => {
+                  const supabase = createClient()
+                  await supabase.auth.signOut()
+                  window.location.href = '/'
+                }}
+                className="text-gray-600 hover:text-gray-800 text-sm"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        )}
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-uvm-dark mb-4">
             UVM IT Support
