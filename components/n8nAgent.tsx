@@ -8,6 +8,23 @@ export default function AgentWindow() {
             return
         }
 
+        // Suppress "Failed to fetch" errors from n8n chat that don't break functionality
+        const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+            const error = event.reason
+            // Check if it's a fetch error from n8n/chat
+            if (
+                error?.message?.includes('Failed to fetch') ||
+                (error?.stack?.includes('@n8n/chat') && error?.message?.includes('fetch'))
+            ) {
+                // Prevent the error from showing in the error overlay
+                event.preventDefault()
+                // Still log it for debugging but don't show to user
+                console.debug('n8n chat fetch error (suppressed):', error)
+            }
+        }
+
+        window.addEventListener('unhandledrejection', handleUnhandledRejection)
+
         // Dynamically import and initialize chat to prevent blocking
         const initChat = async () => {
             try {
@@ -24,9 +41,8 @@ export default function AgentWindow() {
                 }
 
                 // Dynamically import to prevent blocking initial page load
-                // Use type assertion to handle optional dependency
                 // @ts-ignore - @n8n/chat may not be available
-                const n8nChat = await import('@n8n/chat' as string).catch(() => null)
+                const n8nChat = await import('@n8n/chat').catch(() => null)
                 if (!n8nChat) {
                     console.warn('@n8n/chat not available')
                     return
@@ -61,6 +77,7 @@ export default function AgentWindow() {
         
         return () => {
             clearTimeout(timeout)
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection)
         }
     }, [])
 

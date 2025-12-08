@@ -142,6 +142,20 @@ export default function Home() {
               </Link>
             </>
           )}
+          
+          <a
+            href="https://t.me/n8n_catTS_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="bg-white rounded-lg shadow-lg p-8 hover:shadow-xl transition-shadow"
+          >
+            <h2 className="text-2xl font-semibold text-uvm-green mb-4">
+              Telegram Bot
+            </h2>
+            <p className="text-gray-600">
+              Get support and manage tickets via Telegram
+            </p>
+          </a>
         </div>
       </div>
     </main>
