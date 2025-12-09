@@ -53,12 +53,12 @@ export default function AgentWindow() {
                     webhookUrl: chatWebhookUrl,
                     initialMessages: [
                         'Hey, my name is Rally, your IT support assistant.',
-                        'How can I help you today?',
+                        'What can I help you troubleshoot today?',
                     ],
                     i18n: {
                         en: {
                             title: 'UVM IT Support Assistant',
-                            subtitle: "Ask me anything related to UVM IT services, and I'll help as best I can.",
+                            subtitle: "Ask me anything related to UVM services, and I'll help as best I can using my knowledge.",
                             footer: '',
                             getStarted: 'New Conversation',
                             inputPlaceholder: 'Type your question...',
