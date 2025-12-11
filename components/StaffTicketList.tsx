@@ -191,17 +191,31 @@ export default function StaffTicketList() {
 
     try {
       const supabase = createClient()
-      const { error } = await supabase
+      const updateData: any = {
+        category: editForm.category,
+        urgency: editForm.urgency,
+        status: editForm.status,
+        assigned_to: editForm.assigned_to || null,
+      }
+      
+      const { data, error } = await supabase
         .from('tickets')
-        .update({
-          category: editForm.category,
-          urgency: editForm.urgency,
-          status: editForm.status,
-          assigned_to: editForm.assigned_to || null,
-        })
+        .update(updateData)
         .eq('id', selectedTicket.id)
+        .select()
 
-      if (error) throw error
+      if (error) {
+        console.error('Supabase update error:', error)
+        console.error('Error details:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint,
+          updateData,
+          ticketId: selectedTicket.id
+        })
+        throw error
+      }
 
       // Trigger n8n webhook for email notification
       const n8nWebhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL
@@ -221,7 +235,8 @@ export default function StaffTicketList() {
       alert('Ticket updated successfully! Email sent to user.')
     } catch (err: any) {
       console.error('Error updating ticket:', err)
-      alert('Failed to update ticket')
+      const errorMessage = err?.message || err?.code || 'Unknown error'
+      alert(`Failed to update ticket: ${errorMessage}`)
     }
   }
 
@@ -422,7 +437,6 @@ export default function StaffTicketList() {
                     <option value="open">Open</option>
                     <option value="in_progress">In Progress</option>
                     <option value="resolved">Resolved</option>
-                    <option value="closed">Closed</option>
                   </select>
                 </div>
                 <div>

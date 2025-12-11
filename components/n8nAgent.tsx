@@ -11,19 +11,27 @@ export default function AgentWindow() {
         // Suppress "Failed to fetch" errors from n8n chat that don't break functionality
         const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
             const error = event.reason
-            // Check if it's a fetch error from n8n/chat
+            const errorMessage = error?.message || String(error || '')
+            const errorStack = error?.stack || ''
+            
+            // Check if it's a fetch error from n8n/chat (more comprehensive check)
             if (
-                error?.message?.includes('Failed to fetch') ||
-                (error?.stack?.includes('@n8n/chat') && error?.message?.includes('fetch'))
+                errorMessage.includes('Failed to fetch') ||
+                errorMessage.includes('fetch') ||
+                errorStack.includes('@n8n/chat') ||
+                errorStack.includes('chat.es.js')
             ) {
                 // Prevent the error from showing in the error overlay
                 event.preventDefault()
+                event.stopPropagation()
                 // Still log it for debugging but don't show to user
                 console.debug('n8n chat fetch error (suppressed):', error)
+                return false
             }
         }
 
-        window.addEventListener('unhandledrejection', handleUnhandledRejection)
+        // Add error handler immediately, before any async operations
+        window.addEventListener('unhandledrejection', handleUnhandledRejection, { capture: true })
 
         // Dynamically import and initialize chat to prevent blocking
         const initChat = async () => {
@@ -40,6 +48,27 @@ export default function AgentWindow() {
                     return
                 }
 
+                // On localhost, check if webhook is accessible before initializing
+                if (window.location.hostname === 'localhost' && chatWebhookUrl.startsWith('http://localhost')) {
+                    try {
+                        const controller = new AbortController()
+                        const timeoutId = setTimeout(() => controller.abort(), 2000)
+                        const response = await fetch(chatWebhookUrl, { 
+                            method: 'HEAD',
+                            signal: controller.signal
+                        })
+                        clearTimeout(timeoutId)
+                        if (!response.ok) {
+                            console.debug('n8n chat webhook not accessible on localhost, skipping initialization')
+                            return
+                        }
+                    } catch (fetchError) {
+                        // Webhook not available, skip chat initialization to avoid errors
+                        console.debug('n8n chat webhook not accessible on localhost, skipping initialization')
+                        return
+                    }
+                }
+
                 // Dynamically import to prevent blocking initial page load
                 // @ts-ignore - @n8n/chat may not be available
                 const n8nChat = await import('@n8n/chat').catch(() => null)
@@ -49,26 +78,32 @@ export default function AgentWindow() {
                 }
                 const { createChat } = n8nChat
                 
-                createChat({
-                    webhookUrl: chatWebhookUrl,
-                    initialMessages: [
-                        'Hey, my name is Rally, your IT support assistant.',
-                        'What can I help you troubleshoot today?',
-                    ],
-                    i18n: {
-                        en: {
-                            title: 'UVM IT Support Assistant',
-                            subtitle: "Ask me anything related to UVM services, and I'll help as best I can using my knowledge.",
-                            footer: '',
-                            getStarted: 'New Conversation',
-                            inputPlaceholder: 'Type your question...',
-                            closeButtonTooltip: ''
+                // Wrap createChat in try-catch to prevent errors from breaking the app
+                try {
+                    createChat({
+                        webhookUrl: chatWebhookUrl,
+                        initialMessages: [
+                            'Hey, my name is Rally, your IT support assistant.',
+                            'What can I help you troubleshoot today?',
+                        ],
+                        i18n: {
+                            en: {
+                                title: 'UVM IT Support Assistant',
+                                subtitle: "Ask me anything related to UVM services, and I'll help as best I can using my knowledge.",
+                                footer: '',
+                                getStarted: 'New Conversation',
+                                inputPlaceholder: 'Type your question...',
+                                closeButtonTooltip: ''
+                            },
                         },
-                    },
-                })
+                    })
+                } catch (createError) {
+                    // Chat widget creation failed - log but don't break app
+                    console.debug('Failed to create n8n chat widget:', createError)
+                }
             } catch (error) {
                 // Silently fail - don't break the app if chat fails to load
-                console.error('Failed to initialize n8n chat:', error)
+                console.debug('Failed to initialize n8n chat:', error)
             }
         }
 
@@ -77,7 +112,7 @@ export default function AgentWindow() {
         
         return () => {
             clearTimeout(timeout)
-            window.removeEventListener('unhandledrejection', handleUnhandledRejection)
+            window.removeEventListener('unhandledrejection', handleUnhandledRejection, { capture: true })
         }
     }, [])
 
