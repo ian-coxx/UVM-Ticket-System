@@ -37,7 +37,6 @@ export default function StaffTicketList() {
     category: Category
     urgency: Urgency
     status: TicketStatus
-    assigned_to?: string
   } | null>(null)
 
   const loadTickets = async () => {
@@ -176,7 +175,6 @@ export default function StaffTicketList() {
       category: (ticket.category as Category) || 'general',
       urgency: (ticket.urgency as Urgency) || 'medium',
       status: (ticket.status as TicketStatus) || 'open',
-      assigned_to: ticket.assigned_to || '',
     })
   }
 
@@ -195,7 +193,6 @@ export default function StaffTicketList() {
         category: editForm.category,
         urgency: editForm.urgency,
         status: editForm.status,
-        assigned_to: editForm.assigned_to || null,
       }
       
       const { data, error } = await supabase
@@ -438,16 +435,6 @@ export default function StaffTicketList() {
                     <option value="in_progress">In Progress</option>
                     <option value="resolved">Resolved</option>
                   </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-gray-700 mb-2">Assigned To</label>
-                  <input
-                    type="text"
-                    value={editForm?.assigned_to || ''}
-                    onChange={(e) => editForm && setEditForm({ ...editForm, assigned_to: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-md text-gray-900 bg-white"
-                    placeholder="Staff member email or name"
-                  />
                 </div>
               </div>
               <div className="flex gap-4 mt-6">
